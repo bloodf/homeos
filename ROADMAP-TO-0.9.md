@@ -85,7 +85,7 @@ Goal: implement root-only replay payload sidecars and CLI commands to show/repla
 - [x] Update completions for bash and zsh — evidence: `show` and `replay` added to bash/zsh audit completions, 2026-05-01.
 - [x] Create `release-notes/v0.6.0.md` — evidence: release notes file added with scope, retention, secret handling, and validation notes, 2026-05-01.
 - [x] Static validation passes: shell syntax, YAML parsing, targeted audit/replay harness with temp paths — evidence: `bash -n`, PyYAML parse, audit_log sidecar harness, non-root mutator refusal, numeric-hash resolution, and prune harness passed without QEMU, 2026-05-01.
-- [ ] Orchestrator: commit, tag `v0.6.0`, push, publish release, and watch CI. No worker does this.
+- [x] Orchestrator: commit, tag `v0.6.0`, push, publish release, and watch CI. No worker does this — evidence: commit `9da8b87`, tag/release `v0.6.0`, CI run `25236717937` passed and attached artifacts, 2026-05-01.
 
 ## v0.7.0 — Bootstrap fixes
 
