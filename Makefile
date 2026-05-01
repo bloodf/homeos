@@ -15,10 +15,11 @@ BUILDER_IMAGE := homeos-builder:latest
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-check-pubkey: ## verify secrets/authorized_keys exists
+check-pubkey: ## warn if secrets/authorized_keys missing (public builds ship without)
 	@if [ ! -s secrets/authorized_keys ]; then \
-	  echo "ERROR: secrets/authorized_keys missing. Run: cp ~/.ssh/id_ed25519.pub secrets/authorized_keys"; \
-	  exit 1; \
+	  echo "WARNING: secrets/authorized_keys missing. Building PUBLIC distro."; \
+	  echo "         Default login: admin / homeos (forced change on first SSH)."; \
+	  echo "         To bake your key, run: cp ~/.ssh/id_ed25519.pub secrets/authorized_keys"; \
 	fi
 
 builder: ## build the docker builder image
@@ -28,7 +29,10 @@ base-iso: ## download upstream debian netinst iso
 	mkdir -p $(CACHE)
 	bash build/download-base-iso.sh $(BASE_ISO)
 
-iso: check-pubkey builder base-iso ## build the homeos ISO
+pin-tools: ## refresh github tool SHAs into bootstrap/vars/main.yml
+	bash build/refresh-pins.sh --write
+
+iso: check-pubkey pin-tools builder base-iso ## build the homeos ISO
 	mkdir -p $(DIST)
 	docker run --rm --privileged \
 	  -v $(ROOT):/work \

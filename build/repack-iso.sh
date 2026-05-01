@@ -40,11 +40,18 @@ rsync -a --delete \
   --exclude 'dist/' --exclude 'build/cache/' --exclude '.git/' \
   "$SRC/bootstrap/" "$EXTRACT/homeos/bootstrap/"
 install -d -m 755 "$EXTRACT/homeos/secrets"
-install -m 600 "$SRC/secrets/authorized_keys" "$EXTRACT/homeos/secrets/authorized_keys"
+if [ -s "$SRC/secrets/authorized_keys" ]; then
+  install -m 600 "$SRC/secrets/authorized_keys" "$EXTRACT/homeos/secrets/authorized_keys"
+  echo "[repack] baked authorized_keys into ISO"
+else
+  : > "$EXTRACT/homeos/secrets/authorized_keys"
+  chmod 600 "$EXTRACT/homeos/secrets/authorized_keys"
+  echo "[repack] PUBLIC build — no authorized_keys baked; admin/homeos password fallback"
+fi
 
 echo "[repack] regenerating md5sum.txt"
 pushd "$EXTRACT" >/dev/null
-find . -follow -type f ! -name md5sum.txt -print0 \
+find . -type f ! -name md5sum.txt -print0 \
   | xargs -0 md5sum > md5sum.txt
 popd >/dev/null
 

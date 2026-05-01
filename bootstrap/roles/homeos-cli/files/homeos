@@ -20,6 +20,7 @@ homeos — HomeOS day-2 ops
 
   homeos status                              show services, disks, containers, GPU
   homeos doctor                              run smoke tests
+  homeos secure                              lock down SSH (key-only) + lock admin password
   homeos config rerun-bootstrap              re-run Ansible playbook
   homeos config secrets list
   homeos config secrets set KEY=VAL          (or KEY VAL)
@@ -229,12 +230,35 @@ cmd_backup() {
   esac
 }
 
+# ---------- secure ----------
+cmd_secure() {
+  need_root
+  local ak="$ADMIN_HOME/.ssh/authorized_keys"
+  if [ ! -s "$ak" ]; then
+    err "no $ak — upload your pubkey first (scp ~/.ssh/id_ed25519.pub admin@host:.ssh/authorized_keys)"
+  fi
+  if ! grep -qE '^(ssh-(rsa|ed25519|dss)|ecdsa-sha2)' "$ak"; then
+    err "$ak has no recognizable public key line — refusing to lock"
+  fi
+  local conf=/etc/ssh/sshd_config.d/99-homeos.conf
+  sed -i 's/^PasswordAuthentication .*/PasswordAuthentication no/' "$conf"
+  if ! grep -q '^PasswordAuthentication no' "$conf"; then
+    echo "PasswordAuthentication no" >> "$conf"
+  fi
+  sshd -t || err "sshd config invalid — aborting before restart"
+  systemctl restart ssh
+  passwd -l "$ADMIN_USER"
+  bold "secured: password auth off, $ADMIN_USER password locked"
+  echo "to undo: sudo passwd -u $ADMIN_USER && edit $conf"
+}
+
 # ---------- dispatch ----------
 main() {
   local top="${1:-}"; shift || true
   case "$top" in
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    secure) cmd_secure "$@" ;;
     config)
       local section="${1:-}"; shift || true
       case "$section" in
