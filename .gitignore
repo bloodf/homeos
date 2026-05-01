@@ -6,3 +6,4 @@ secrets/*.env
 .envrc
 .DS_Store
 build/cache/
+.worktrees/
