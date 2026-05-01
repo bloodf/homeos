@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HomeOS Portal</title>
+<link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+<header>
+  <h1>HomeOS Portal</h1>
+  <p class="sub">Control plane for AI CLIs and CLI-only tools.</p>
+</header>
+
+<main>
+  <section>
+    <h2>AI CLIs</h2>
+    <div class="grid">
+      <a class="card cli" href="/term/claude/" data-port="7681"><h3>Claude Code</h3><p>Anthropic agentic coding</p></a>
+      <a class="card cli" href="/term/codex/" data-port="7682"><h3>Codex</h3><p>OpenAI coding agent</p></a>
+      <a class="card cli" href="/term/gemini/" data-port="7683"><h3>Gemini</h3><p>Google CLI</p></a>
+      <a class="card cli" href="/term/cursor/" data-port="7684"><h3>Cursor Agent</h3><p>Cursor headless</p></a>
+      <a class="card cli" href="/term/opencode/" data-port="7685"><h3>OpenCode</h3><p>sst/opencode</p></a>
+      <a class="card cli" href="/term/kimi/" data-port="7686"><h3>Kimi</h3><p>Moonshot CLI</p></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Agents &amp; Tools</h2>
+    <div class="grid">
+      <a class="card cli" href="/term/hermes/" data-port="7687"><h3>Hermes Agent</h3><p>NousResearch agent</p></a>
+      <a class="card cli" href="/term/shell/" data-port="7688"><h3>Shell</h3><p>admin login shell</p></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Web UIs</h2>
+    <div class="grid">
+      <a class="card ui" href="https://casa.{{ tailnet_host | default('homeos.example.ts.net') }}/"><h3>CasaOS</h3><p>App dashboard</p></a>
+      <a class="card ui" href="https://ha.{{ tailnet_host | default('homeos.example.ts.net') }}/"><h3>Home Assistant</h3><p>Smart home</p></a>
+      <a class="card ui" href="https://jelly.{{ tailnet_host | default('homeos.example.ts.net') }}/"><h3>Jellyfin</h3><p>Media server</p></a>
+      <a class="card ui" href="https://cockpit.{{ tailnet_host | default('homeos.example.ts.net') }}/"><h3>Cockpit</h3><p>System + NAS</p></a>
+      <a class="card ui" href="https://vault.{{ tailnet_host | default('homeos.example.ts.net') }}/"><h3>Vaultwarden</h3><p>Password vault</p></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Reference</h2>
+    <ul class="links">
+      <li><code>homeos status</code> — services + GPU + tailscale</li>
+      <li><code>homeos doctor</code> — full smoke test</li>
+      <li><code>homeos config secrets set KEY=VAL</code> — set AI CLI keys</li>
+      <li><code>homeos config nas add /dev/sdcN</code> — share USB drive</li>
+      <li><code>homeos config rerun-bootstrap</code> — reapply Ansible</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <p>HomeOS Portal · <a href="https://github.com/bloodf/homeos">github.com/bloodf/homeos</a></p>
+</footer>
+</body>
+</html>

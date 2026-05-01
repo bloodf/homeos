@@ -3,6 +3,12 @@
 
 node_major: "24"
 
+# Hermes Agent — dedicated role
+hermes_agent_ref: "c5b4c481656634ff919b214a037b830077d3bbd1"
+
+# Tailnet host placeholder — overwritten at runtime by `homeos config net caddy-reload`
+tailnet_host: "homeos.example.ts.net"
+
 casaos_version: "v0.4.15"   # bump after manual smoke-test
 
 tailscale_channel: "stable"
@@ -23,8 +29,9 @@ ai_clis_brew:
   - { tap: "sst/tap",        formula: "opencode" }
 
 ai_clis_curl:
-  - { name: "cursor-agent", url: "https://cursor.com/install",      shell: "bash", curl_flags: "-fsS" }
+  - { name: "cursor-agent", url: "https://cursor.com/install",       shell: "bash", curl_flags: "-fsS" }
   - { name: "kimi",         url: "https://code.kimi.com/install.sh", shell: "bash", curl_flags: "-fsSL" }
+  - { name: "opencode",     url: "https://opencode.ai/install",      shell: "bash", curl_flags: "-fsSL" }
 
 ai_clis_pipx: []
 
@@ -35,7 +42,7 @@ github_tools:
   - { name: "portless",           repo: "https://github.com/vercel-labs/portless.git",             ref: "4522cf70c94d4569cfcf7e58af5b733579baed08",   build: "node" }
   - { name: "claude-context",     repo: "https://github.com/zilliztech/claude-context.git",        ref: "ead19f4ad66da78243dd9e126de121c19b7874e6",   build: "node" }
   - { name: "utoo",               repo: "https://github.com/utooland/utoo.git",                    ref: "73beec0ac68c0fddc9c4e12d38d2626ad8b8a8f1",   build: "auto" }
-  - { name: "hermes-agent",       repo: "https://github.com/NousResearch/hermes-agent.git",        ref: "c5b4c481656634ff919b214a037b830077d3bbd1",   build: "pipx" }
+  # hermes-agent handled by dedicated role (venv + systemd unit)
   - { name: "OpenViking",         repo: "https://github.com/volcengine/OpenViking.git",            ref: "4d6f5b65bd24185c769ea8b81c4a86b6fca97ff2",   build: "compose" }
   - { name: "oh-my-opencode",     repo: "https://github.com/opensoft/oh-my-opencode.git",          ref: "aead4aebd28abf0be5e17f075d66eb76faacf083",   build: "clone-only", dest: "{{ admin_home }}/.config/opencode/plugins/oh-my-opencode" }
   - { name: "oh-my-claudecode",   repo: "https://github.com/yeachan-heo/oh-my-claudecode.git",     ref: "1e9f197bcc85602da87ad35b18d908a0575b8583",   build: "clone-only", dest: "{{ admin_home }}/.claude/oh-my-claudecode" }

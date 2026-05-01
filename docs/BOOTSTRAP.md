@@ -1,12 +1,12 @@
 # Bootstrap — Ansible Roles Reference
 
 Stage B is `bootstrap/install.yml`, a single-play, single-host playbook applied
-to `localhost` with `connection: local`. 18 roles run in this order:
+to `localhost` with `connection: local`. 20 roles run in this order:
 
 ```
 base → ssh → shell → docker → node → brew → gpu-intel → ai-clis →
-github-tools → tailscale → cockpit → casaos → caddy → stacks → nas →
-backups → homeos-cli → firstboot
+github-tools → hermes-agent → tailscale → cockpit → casaos → caddy →
+stacks → portal → nas → backups → homeos-cli → firstboot
 ```
 
 Re-run anytime with `homeos config rerun-bootstrap` (idempotent).

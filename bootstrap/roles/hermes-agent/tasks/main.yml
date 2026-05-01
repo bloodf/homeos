@@ -1,0 +1,110 @@
+---
+# Dedicated hermes-agent install: venv + systemd unit. Generic github-tools
+# pipx pass is unreliable for projects without a setup.py at root.
+
+- name: Install python build deps for hermes-agent
+  ansible.builtin.apt:
+    name:
+      - python3-venv
+      - python3-pip
+      - python3-dev
+      - build-essential
+      - libssl-dev
+      - libffi-dev
+      - pkg-config
+    state: present
+
+- name: Hermes-agent install dir
+  ansible.builtin.file:
+    path: /opt/tools/hermes-agent
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0755'
+
+- name: Clone hermes-agent (pinned)
+  ansible.builtin.git:
+    repo: "https://github.com/NousResearch/hermes-agent.git"
+    dest: /opt/tools/hermes-agent
+    version: "{{ hermes_agent_ref | default('main') }}"
+    force: true
+  become_user: "{{ admin_user }}"
+
+- name: Create hermes venv
+  ansible.builtin.command:
+    cmd: python3 -m venv /opt/tools/hermes-agent/.venv
+    creates: /opt/tools/hermes-agent/.venv/bin/python
+  become_user: "{{ admin_user }}"
+
+- name: Upgrade pip in hermes venv
+  ansible.builtin.shell: |
+    /opt/tools/hermes-agent/.venv/bin/pip install -U pip wheel setuptools
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  changed_when: false
+
+- name: Install hermes deps (best effort — requirements.txt or pyproject)
+  ansible.builtin.shell: |
+    set -e
+    cd /opt/tools/hermes-agent
+    if [ -f requirements.txt ]; then
+      .venv/bin/pip install -r requirements.txt
+    elif [ -f pyproject.toml ]; then
+      .venv/bin/pip install -e .
+    fi
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  failed_when: false
+  register: hermes_deps
+
+- name: Hermes runner wrapper
+  ansible.builtin.copy:
+    dest: /usr/local/bin/hermes
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # HomeOS hermes-agent launcher — runs hermes inside its venv.
+      set -e
+      cd /opt/tools/hermes-agent
+      exec ./.venv/bin/python -m hermes_agent "$@" 2>/dev/null \
+        || exec ./.venv/bin/python main.py "$@" 2>/dev/null \
+        || exec ./.venv/bin/python -c "import sys; print('hermes-agent installed at /opt/tools/hermes-agent — entrypoint not detected, run manually'); sys.exit(1)"
+
+- name: Hermes systemd unit (disabled by default)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/hermes-agent.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Hermes Agent
+      After=network-online.target docker.service
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User={{ admin_user }}
+      WorkingDirectory=/opt/tools/hermes-agent
+      EnvironmentFile=-{{ admin_home }}/.config/homeos/secrets.env
+      ExecStart=/usr/local/bin/hermes
+      Restart=on-failure
+      RestartSec=15
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: reload systemd
+
+- name: Hermes smoke check
+  ansible.builtin.shell: |
+    /opt/tools/hermes-agent/.venv/bin/python -c "import sys; print('hermes venv python', sys.version.split()[0])"
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  register: hermes_smoke
+  changed_when: false
+  failed_when: false
+
+- name: Hermes status
+  ansible.builtin.debug:
+    msg: "{{ hermes_smoke.stdout | default('hermes venv check failed') }}"

@@ -45,11 +45,13 @@
     - role: gpu-intel
     - role: ai-clis
     - role: github-tools
+    - role: hermes-agent
     - role: tailscale
     - role: cockpit
     - role: casaos
     - role: caddy
     - role: stacks
+    - role: portal
     - role: nas
     - role: backups
     - role: homeos-cli

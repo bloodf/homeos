@@ -1,0 +1,69 @@
+version: "3.8"
+
+# HomeOS Portal stack
+# - portal-www: nginx serving the dashboard (port 8080)
+# - ttyd-<tool>: one ttyd instance per CLI tool (ports 7681-7690)
+
+x-ttyd-common: &ttyd-common
+  image: tsl0922/ttyd:latest
+  restart: unless-stopped
+  network_mode: host
+  volumes:
+    - {{ admin_home }}:/home/admin
+    - /opt/tools:/opt/tools:ro
+    - /srv/portal/launch.sh:/launch.sh:ro
+    - {{ admin_home }}/.config/homeos/secrets.env:/secrets.env:ro
+  environment:
+    HOME: /home/admin
+    USER: "{{ admin_user }}"
+    TERM: xterm-256color
+  user: "{{ admin_user_uid | default(1000) }}:{{ admin_user_gid | default(1000) }}"
+
+services:
+  portal-www:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - /srv/portal/www:/usr/share/nginx/html:ro
+
+  ttyd-claude:
+    <<: *ttyd-common
+    container_name: ttyd-claude
+    command: ["ttyd", "-W", "-p", "7681", "-t", "titleFixed=Claude Code", "/launch.sh", "claude"]
+
+  ttyd-codex:
+    <<: *ttyd-common
+    container_name: ttyd-codex
+    command: ["ttyd", "-W", "-p", "7682", "-t", "titleFixed=Codex", "/launch.sh", "codex"]
+
+  ttyd-gemini:
+    <<: *ttyd-common
+    container_name: ttyd-gemini
+    command: ["ttyd", "-W", "-p", "7683", "-t", "titleFixed=Gemini", "/launch.sh", "gemini"]
+
+  ttyd-cursor:
+    <<: *ttyd-common
+    container_name: ttyd-cursor
+    command: ["ttyd", "-W", "-p", "7684", "-t", "titleFixed=Cursor Agent", "/launch.sh", "cursor-agent"]
+
+  ttyd-opencode:
+    <<: *ttyd-common
+    container_name: ttyd-opencode
+    command: ["ttyd", "-W", "-p", "7685", "-t", "titleFixed=OpenCode", "/launch.sh", "opencode"]
+
+  ttyd-kimi:
+    <<: *ttyd-common
+    container_name: ttyd-kimi
+    command: ["ttyd", "-W", "-p", "7686", "-t", "titleFixed=Kimi", "/launch.sh", "kimi"]
+
+  ttyd-hermes:
+    <<: *ttyd-common
+    container_name: ttyd-hermes
+    command: ["ttyd", "-W", "-p", "7687", "-t", "titleFixed=Hermes Agent", "/launch.sh", "hermes"]
+
+  ttyd-shell:
+    <<: *ttyd-common
+    container_name: ttyd-shell
+    command: ["ttyd", "-W", "-p", "7688", "-t", "titleFixed=Shell", "/launch.sh", "shell"]

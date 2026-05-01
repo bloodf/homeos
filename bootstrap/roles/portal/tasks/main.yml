@@ -1,0 +1,55 @@
+---
+# HomeOS Portal — web UI to control AI CLIs and other CLI-only tools.
+# Single-page dashboard + ttyd web terminal sessions per tool.
+# All behind Caddy on portal.<tailnet>.ts.net.
+
+- name: Portal dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0755'
+  loop:
+    - /opt/stacks/portal
+    - /srv/portal
+    - /srv/portal/www
+
+- name: Portal docker-compose
+  ansible.builtin.template:
+    src: portal-compose.yml.j2
+    dest: /opt/stacks/portal/docker-compose.yml
+    mode: '0644'
+  register: portal_compose
+
+- name: Portal landing page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /srv/portal/www/index.html
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0644'
+  register: portal_html
+
+- name: Portal stylesheet
+  ansible.builtin.copy:
+    src: portal.css
+    dest: /srv/portal/www/portal.css
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0644'
+
+- name: Portal launcher script (passed into ttyd containers)
+  ansible.builtin.template:
+    src: launch.sh.j2
+    dest: /srv/portal/launch.sh
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0755'
+
+- name: Bring up portal stack
+  community.docker.docker_compose_v2:
+    project_src: /opt/stacks/portal
+    state: present
+    pull: missing
+  when: portal_compose.changed or portal_html.changed

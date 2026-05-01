@@ -40,4 +40,22 @@
 
     @vault host vault.{$HOMEOS_TAILNET:homeos.example.ts.net}
     handle @vault { reverse_proxy localhost:8222 }
+
+    @portal host portal.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @portal {
+        # Static dashboard
+        handle_path /portal.css { reverse_proxy localhost:8080 }
+        handle / { reverse_proxy localhost:8080 }
+        handle /index.html { reverse_proxy localhost:8080 }
+
+        # ttyd terminals — strip /term/<name>/ prefix and reverse-proxy
+        handle_path /term/claude/*   { reverse_proxy localhost:7681 }
+        handle_path /term/codex/*    { reverse_proxy localhost:7682 }
+        handle_path /term/gemini/*   { reverse_proxy localhost:7683 }
+        handle_path /term/cursor/*   { reverse_proxy localhost:7684 }
+        handle_path /term/opencode/* { reverse_proxy localhost:7685 }
+        handle_path /term/kimi/*     { reverse_proxy localhost:7686 }
+        handle_path /term/hermes/*   { reverse_proxy localhost:7687 }
+        handle_path /term/shell/*    { reverse_proxy localhost:7688 }
+    }
 }
