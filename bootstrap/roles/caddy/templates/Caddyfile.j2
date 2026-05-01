@@ -41,14 +41,9 @@
     @vault host vault.{$HOMEOS_TAILNET:homeos.example.ts.net}
     handle @vault { reverse_proxy localhost:8222 }
 
+    # Portal — Homepage dashboard with /term/<name>/ ttyd routes
     @portal host portal.{$HOMEOS_TAILNET:homeos.example.ts.net}
     handle @portal {
-        # Static dashboard
-        handle_path /portal.css { reverse_proxy localhost:8080 }
-        handle / { reverse_proxy localhost:8080 }
-        handle /index.html { reverse_proxy localhost:8080 }
-
-        # ttyd terminals — strip /term/<name>/ prefix and reverse-proxy
         handle_path /term/claude/*   { reverse_proxy localhost:7681 }
         handle_path /term/codex/*    { reverse_proxy localhost:7682 }
         handle_path /term/gemini/*   { reverse_proxy localhost:7683 }
@@ -57,5 +52,18 @@
         handle_path /term/kimi/*     { reverse_proxy localhost:7686 }
         handle_path /term/hermes/*   { reverse_proxy localhost:7687 }
         handle_path /term/shell/*    { reverse_proxy localhost:7688 }
+        reverse_proxy localhost:3001
     }
+
+    # Open WebUI — chat with Claude/GPT/Gemini APIs (non-tech UX)
+    @chat host chat.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @chat { reverse_proxy localhost:3002 }
+
+    # Dockge — docker compose stack manager
+    @stacks host stacks.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @stacks { reverse_proxy localhost:5001 }
+
+    # Filebrowser — web file manager
+    @files host files.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @files { reverse_proxy localhost:8090 }
 }

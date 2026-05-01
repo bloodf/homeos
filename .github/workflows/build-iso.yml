@@ -3,19 +3,6 @@ name: Build ISO
 on:
   push:
     tags: ['v*']
-    branches: [main]
-    paths:
-      - 'build/**'
-      - 'preseed/**'
-      - 'bootstrap/**'
-      - 'Makefile'
-      - '.github/workflows/build-iso.yml'
-  pull_request:
-    paths:
-      - 'build/**'
-      - 'preseed/**'
-      - 'bootstrap/**'
-      - 'Makefile'
   workflow_dispatch:
     inputs:
       arch:

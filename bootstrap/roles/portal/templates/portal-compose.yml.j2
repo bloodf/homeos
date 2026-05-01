@@ -1,8 +1,12 @@
-version: "3.8"
-
 # HomeOS Portal stack
-# - portal-www: nginx serving the dashboard (port 8080)
-# - ttyd-<tool>: one ttyd instance per CLI tool (ports 7681-7690)
+# Toggled via `homeos config portal on|off|status`. Tailnet-only by default.
+#
+# Components:
+#   homepage    :3001  — landing dashboard with live service widgets
+#   open-webui  :3002  — chat UI for Claude/OpenAI/Gemini APIs (no terminal)
+#   dockge      :5001  — docker-compose stack manager
+#   filebrowser :8090  — web file manager for /srv + /home
+#   ttyd-*      :7681-7688 — per-CLI web terminals (power users)
 
 x-ttyd-common: &ttyd-common
   image: tsl0922/ttyd:latest
@@ -20,14 +24,67 @@ x-ttyd-common: &ttyd-common
   user: "{{ admin_user_uid | default(1000) }}:{{ admin_user_gid | default(1000) }}"
 
 services:
-  portal-www:
-    image: nginx:alpine
+  # ─── Landing dashboard ──────────────────────────────────────────────────
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "127.0.0.1:3001:3000"
     volumes:
-      - /srv/portal/www:/usr/share/nginx/html:ro
+      - /srv/portal/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "*"
+      LOG_LEVEL: info
 
+  # ─── Chat UI for AI APIs (non-tech users) ───────────────────────────────
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:8080"
+    volumes:
+      - /srv/portal/open-webui:/app/backend/data
+    environment:
+      WEBUI_AUTH: "True"
+      WEBUI_NAME: "HomeOS AI"
+      ENABLE_OLLAMA_API: "False"
+      ENABLE_OPENAI_API: "True"
+      # secrets file is bind-mounted; values picked from env at runtime
+    env_file:
+      - {{ admin_home }}/.config/homeos/secrets.env
+
+  # ─── Docker Compose stack manager ───────────────────────────────────────
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/portal/dockge:/app/data
+      - /opt/stacks:/opt/stacks
+    environment:
+      DOCKGE_STACKS_DIR: /opt/stacks
+
+  # ─── File manager ────────────────────────────────────────────────────────
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:80"
+    volumes:
+      - /srv:/srv
+      - {{ admin_home }}:/home-admin
+      - /srv/portal/filebrowser/database.db:/database.db
+      - /srv/portal/filebrowser/settings.json:/.filebrowser.json:ro
+    user: "{{ admin_user_uid | default(1000) }}:{{ admin_user_gid | default(1000) }}"
+
+  # ─── Per-tool web terminals ─────────────────────────────────────────────
   ttyd-claude:
     <<: *ttyd-common
     container_name: ttyd-claude

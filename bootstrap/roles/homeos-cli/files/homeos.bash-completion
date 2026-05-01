@@ -2,7 +2,7 @@ _homeos() {
   local cur prev words cword
   _init_completion || return
   local commands="status doctor secure config"
-  local config_subs="rerun-bootstrap secrets nas stack net backup"
+  local config_subs="rerun-bootstrap secrets nas stack net backup portal"
   case "${words[1]}" in
     config)
       case "${words[2]}" in
@@ -11,6 +11,7 @@ _homeos() {
         stack)   COMPREPLY=( $(compgen -W "up down update logs" -- "$cur") ) ;;
         net)     COMPREPLY=( $(compgen -W "tailscale-up caddy-reload" -- "$cur") ) ;;
         backup)  COMPREPLY=( $(compgen -W "target run" -- "$cur") ) ;;
+        portal)  COMPREPLY=( $(compgen -W "on off status" -- "$cur") ) ;;
         *)       COMPREPLY=( $(compgen -W "$config_subs" -- "$cur") ) ;;
       esac
       ;;

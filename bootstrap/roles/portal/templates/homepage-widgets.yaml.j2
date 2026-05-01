@@ -1,0 +1,17 @@
+---
+- resources:
+    cpu: true
+    memory: true
+    disk: /
+- resources:
+    label: NAS
+    disk:
+      - /srv/nas
+- search:
+    provider: duckduckgo
+    target: _blank
+- datetime:
+    text_size: xl
+    format:
+      timeStyle: short
+      dateStyle: long

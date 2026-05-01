@@ -148,6 +148,25 @@ homeos config backup restore <snapshot> <path>
 
 Cron runs daily at 02:30 BRT after target is set.
 
+## `homeos config portal`
+
+Toggle the web portal (Homepage + Open WebUI + Dockge + Filebrowser + ttyd
+terminals). Disabled by default; opt in to expose Tailnet-only web UIs.
+
+```
+sudo homeos config portal on        # touch flag, docker compose up
+sudo homeos config portal off       # docker compose down, rm flag
+homeos config portal status         # flag state + container list
+```
+
+Subdomains (Tailnet only):
+- `portal.<tailnet>.ts.net` — Homepage dashboard + `/term/<tool>/`
+- `chat.<tailnet>.ts.net` — Open WebUI
+- `stacks.<tailnet>.ts.net` — Dockge
+- `files.<tailnet>.ts.net` — Filebrowser
+
+See [PORTAL.md](PORTAL.md) for architecture + customization.
+
 ## Re-runnable semantics
 
 Every command is safe to run twice:
