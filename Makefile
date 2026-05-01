@@ -5,8 +5,11 @@ SHELL := /bin/bash
 ROOT := $(abspath $(CURDIR))
 DIST := $(ROOT)/dist
 CACHE := $(ROOT)/build/cache
-BASE_ISO := $(CACHE)/debian-13.4.0-amd64-netinst.iso
-OUT_ISO := $(DIST)/homeos-debian-13.4-amd64.iso
+
+# Override: make ARCH=arm64 iso
+ARCH ?= amd64
+BASE_ISO := $(CACHE)/debian-13.4.0-$(ARCH)-netinst.iso
+OUT_ISO := $(DIST)/homeos-debian-13.4-$(ARCH).iso
 
 BUILDER_IMAGE := homeos-builder:latest
 
@@ -25,9 +28,9 @@ check-pubkey: ## warn if secrets/authorized_keys missing (public builds ship wit
 builder: ## build the docker builder image
 	docker build -t $(BUILDER_IMAGE) build/
 
-base-iso: ## download upstream debian netinst iso
+base-iso: ## download upstream debian netinst iso (ARCH=amd64|arm64)
 	mkdir -p $(CACHE)
-	bash build/download-base-iso.sh $(BASE_ISO)
+	bash build/download-base-iso.sh $(BASE_ISO) $(ARCH)
 
 pin-tools: ## refresh github tool SHAs into bootstrap/vars/main.yml
 	bash build/refresh-pins.sh --write
@@ -39,7 +42,7 @@ iso: check-pubkey pin-tools builder base-iso ## build the homeos ISO
 	  -v $(CACHE):/cache \
 	  -v $(DIST):/dist \
 	  $(BUILDER_IMAGE) \
-	  /work/build/repack-iso.sh /cache/$(notdir $(BASE_ISO)) /dist/$(notdir $(OUT_ISO))
+	  /work/build/repack-iso.sh /cache/$(notdir $(BASE_ISO)) /dist/$(notdir $(OUT_ISO)) $(ARCH)
 	@echo
 	@echo "Built: $(OUT_ISO)"
 	@sha256sum $(OUT_ISO) | tee $(OUT_ISO).sha256

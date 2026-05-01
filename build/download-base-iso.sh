@@ -4,8 +4,12 @@
 set -euo pipefail
 
 OUT="${1:?output path required}"
+ARCH="${2:-amd64}"
 VERSION="13.4.0"
-ARCH="amd64"
+case "$ARCH" in
+  amd64|arm64) ;;
+  *) echo "[base-iso] unsupported arch: $ARCH" >&2; exit 2 ;;
+esac
 FILE="debian-${VERSION}-${ARCH}-netinst.iso"
 MIRROR="https://cdimage.debian.org/cdimage/release/${VERSION}/${ARCH}/iso-cd"
 

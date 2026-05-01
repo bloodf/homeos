@@ -1,0 +1,127 @@
+name: Build ISO
+
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'build/**'
+      - 'preseed/**'
+      - 'bootstrap/**'
+      - 'Makefile'
+      - '.github/workflows/build-iso.yml'
+  pull_request:
+    paths:
+      - 'build/**'
+      - 'preseed/**'
+      - 'bootstrap/**'
+      - 'Makefile'
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: 'Architectures to build (comma-separated: amd64,arm64)'
+        default: 'amd64,arm64'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} ISO
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache base ISO
+        id: cache-base
+        uses: actions/cache@v4
+        with:
+          path: build/cache/debian-13.4.0-${{ matrix.arch }}-netinst.iso
+          key: debian-base-iso-13.4.0-${{ matrix.arch }}
+
+      - name: Cache builder Docker image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/builder-image.tar
+          key: homeos-builder-${{ hashFiles('build/Dockerfile') }}-${{ matrix.arch }}
+
+      - name: Load builder image from cache
+        if: hashFiles('/tmp/builder-image.tar') != ''
+        run: docker load -i /tmp/builder-image.tar || true
+
+      - name: Build builder image
+        run: |
+          if ! docker image inspect homeos-builder:latest >/dev/null 2>&1; then
+            make builder
+            docker save homeos-builder:latest -o /tmp/builder-image.tar
+          fi
+
+      - name: Download base ISO
+        run: make ARCH=${{ matrix.arch }} base-iso
+
+      - name: Pin GitHub tool SHAs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/refresh-pins.sh --write
+
+      - name: Build HomeOS ISO
+        run: |
+          mkdir -p dist
+          docker run --rm --privileged \
+            -v "$PWD:/work" \
+            -v "$PWD/build/cache:/cache" \
+            -v "$PWD/dist:/dist" \
+            homeos-builder:latest \
+            /work/build/repack-iso.sh \
+              /cache/debian-13.4.0-${{ matrix.arch }}-netinst.iso \
+              /dist/homeos-debian-13.4-${{ matrix.arch }}.iso \
+              ${{ matrix.arch }}
+
+      - name: Generate sha256
+        run: |
+          cd dist
+          sha256sum homeos-debian-13.4-${{ matrix.arch }}.iso \
+            > homeos-debian-13.4-${{ matrix.arch }}.iso.sha256
+          cat homeos-debian-13.4-${{ matrix.arch }}.iso.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: homeos-${{ matrix.arch }}
+          path: |
+            dist/homeos-debian-13.4-${{ matrix.arch }}.iso
+            dist/homeos-debian-13.4-${{ matrix.arch }}.iso.sha256
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    name: Attach to release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create / update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/homeos-debian-13.4-amd64.iso
+            dist/homeos-debian-13.4-amd64.iso.sha256
+            dist/homeos-debian-13.4-arm64.iso
+            dist/homeos-debian-13.4-arm64.iso.sha256
+          generate_release_notes: true
