@@ -13,19 +13,19 @@ screens, no GUIs, no manual configuration steps after `dd`.
 
 After first boot completes, the box is simultaneously:
 
-| Layer | What | Port |
-|---|---|---|
-| Container dashboard | [CasaOS](https://www.casaos.io/) | `:81` |
-| Smart home hub | [Home Assistant](https://www.home-assistant.io/) (Docker) | `:8123` |
-| Media server | [Jellyfin](https://jellyfin.org/) with Intel QSV/VAAPI hardware transcoding | `:8096` |
-| NAS / file sharing | [Cockpit](https://cockpit-project.org/) + [45Drives `cockpit-file-sharing`](https://github.com/45Drives/cockpit-file-sharing) (Samba + NFS) | `:9090` |
-| Reverse proxy | [Caddy](https://caddyserver.com/) with Tailscale `*.ts.net` certs | `:80` / `:443` |
-| Secrets vault | [Vaultwarden](https://github.com/dani-garcia/vaultwarden) | `:8222` |
-| Auto-updates | [Watchtower](https://containrrr.dev/watchtower/) (label-based opt-in) | — |
-| Backups | [Restic](https://restic.net/) cron to a local USB drive | — |
-| VPN | [Tailscale](https://tailscale.com/) | — |
-| Dev runtime | Node 24 LTS, Bun, pnpm, Docker CE, Homebrew (Linuxbrew) | — |
-| AI coding CLIs | Claude Code, Codex, Gemini, Cursor Agent, OpenCode, Kimi | — |
+| Layer               | What                                                                                                                                        | Port           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Container dashboard | [CasaOS](https://www.casaos.io/)                                                                                                            | `:81`          |
+| Smart home hub      | [Home Assistant](https://www.home-assistant.io/) (Docker)                                                                                   | `:8123`        |
+| Media server        | [Jellyfin](https://jellyfin.org/) with Intel QSV/VAAPI hardware transcoding                                                                 | `:8096`        |
+| NAS / file sharing  | [Cockpit](https://cockpit-project.org/) + [45Drives `cockpit-file-sharing`](https://github.com/45Drives/cockpit-file-sharing) (Samba + NFS) | `:9090`        |
+| Reverse proxy       | [Caddy](https://caddyserver.com/) with Tailscale `*.ts.net` certs                                                                           | `:80` / `:443` |
+| Secrets vault       | [Vaultwarden](https://github.com/dani-garcia/vaultwarden)                                                                                   | `:8222`        |
+| Auto-updates        | [Watchtower](https://containrrr.dev/watchtower/) (label-based opt-in)                                                                       | —              |
+| Backups             | [Restic](https://restic.net/) cron to a local USB drive                                                                                     | —              |
+| VPN                 | [Tailscale](https://tailscale.com/)                                                                                                         | —              |
+| Dev runtime         | Node 24 LTS, Bun, pnpm, Docker CE, Homebrew (Linuxbrew)                                                                                     | —              |
+| AI coding CLIs      | Claude Code, Codex, Gemini, Cursor Agent, OpenCode, Kimi                                                                                    | —              |
 
 Plus 10 bonus GitHub tools cloned and built under `/opt/tools/` (Hindsight,
 code-review-graph, Portless, claude-context, utoo, hermes-agent, OpenViking,
@@ -164,11 +164,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 
 ## Storage layout (default)
 
-| Disk | Layout | Purpose |
-|---|---|---|
-| `/dev/sda` (Disk 1) | `/boot` (1 GB ext4) + LVM `vg0/root` (rest, ext4) | OS + apps + container data |
-| `/dev/sdb` (Disk 2) | LVM `vg1/swap` (16 GB) + `vg1/cache` (rest, attached as cache to `vg0/root`) | Swap + LVM cache tier |
-| USB drives | per-drive UUID-pinned `systemd.mount` units under `/srv/nas/<label>/` | NAS shares |
+| Disk                | Layout                                                                       | Purpose                    |
+| ------------------- | ---------------------------------------------------------------------------- | -------------------------- |
+| `/dev/sda` (Disk 1) | `/boot` (1 GB ext4) + LVM `vg0/root` (rest, ext4)                            | OS + apps + container data |
+| `/dev/sdb` (Disk 2) | LVM `vg1/swap` (16 GB) + `vg1/cache` (rest, attached as cache to `vg0/root`) | Swap + LVM cache tier      |
+| USB drives          | per-drive UUID-pinned `systemd.mount` units under `/srv/nas/<label>/`        | NAS shares                 |
 
 Cache attach happens in the `base` Ansible role only if `vg1/cache` exists.
 USB drives are added at runtime via `homeos config nas add /dev/sdcN` — never
@@ -198,15 +198,23 @@ make builder        # build the homeos-builder Docker image
 make base-iso       # download + verify upstream Debian netinst
 make iso            # repack with preseed + bootstrap, emit dist/*.iso + .sha256
 make ARCH=arm64 iso # arm64 variant
-make qemu-test      # boot the ISO in QEMU (light smoke: boot + installer path)
+make qemu-test      # boot the ISO in QEMU (reserved for final/orchestrated validation)
 make clean          # nuke dist/ and qemu disk images
 make refresh-pins   # print latest github_tools commit SHAs
-make pin-tools      # write latest SHAs into bootstrap/vars/main.yml
+make pin-tools      # write latest SHAs into bootstrap/vars/main.yml before tagging
+make check-static   # shell/YAML/policy checks without building or booting an ISO
 ```
 
-CI builds both architectures on every push and publishes ISOs as artifacts.
-Tagged releases (`v*`) attach the ISOs to a GitHub release. See
+CI is intentionally tag/manual-only: `v*` tags and `workflow_dispatch` build both
+architectures from committed pins, publish short-lived artifacts, and attach ISOs
+plus `.sha256` files to tagged releases. It does not run on branch pushes or pull requests. See
 [.github/workflows/build-iso.yml](.github/workflows/build-iso.yml).
+
+Verify release artifacts after download:
+
+```bash
+sha256sum -c homeos-debian-13.4-amd64.iso.sha256
+```
 
 ## Security
 
@@ -223,24 +231,31 @@ HomeOS is **opinionated about security but pragmatic about first boot**:
   pocket only) run automatically.
 - All Tailscale services use Tailscale-issued ACME-equivalent certificates —
   no public DNS or LetsEncrypt account needed.
+- Cosmos uses the HomeOS Docker socket audit shim instead of mounting the host
+  Docker socket directly. Other Docker-control UIs that require the host socket
+  are documented as host-root-equivalent accepted risks.
+- Gated commands write redacted public audit JSONL and root-only replay sidecars
+  with a 90-day sidecar retention timer.
+- Debian base ISOs are checked against `build/debian-base-isos.sha256` and
+  upstream `SHA256SUMS`; release ISOs ship with `.sha256` verification files.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and
 hardening checklist.
 
 ## Documentation
 
-| Doc | When to read |
-|---|---|
-| [docs/INSTALL.md](docs/INSTALL.md) | First time installing on real hardware |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Understanding how it all fits together |
-| [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md) | Customizing what gets installed |
-| [docs/DAY2.md](docs/DAY2.md) | Full `homeos` CLI reference |
-| [docs/NAS.md](docs/NAS.md) | Adding/removing USB drives, Samba/NFS |
-| [docs/SECURITY.md](docs/SECURITY.md) | Hardening + secrets management |
-| [docs/HARDWARE.md](docs/HARDWARE.md) | Supported hardware, GPU, networking |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Building from source, contributing |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | First-boot stalls, broken services |
-| [docs/FAQ.md](docs/FAQ.md) | Common questions |
+| Doc                                                | When to read                           |
+| -------------------------------------------------- | -------------------------------------- |
+| [docs/INSTALL.md](docs/INSTALL.md)                 | First time installing on real hardware |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | Understanding how it all fits together |
+| [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md)             | Customizing what gets installed        |
+| [docs/DAY2.md](docs/DAY2.md)                       | Full `homeos` CLI reference            |
+| [docs/NAS.md](docs/NAS.md)                         | Adding/removing USB drives, Samba/NFS  |
+| [docs/SECURITY.md](docs/SECURITY.md)               | Hardening + secrets management         |
+| [docs/HARDWARE.md](docs/HARDWARE.md)               | Supported hardware, GPU, networking    |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)         | Building from source, contributing     |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | First-boot stalls, broken services     |
+| [docs/FAQ.md](docs/FAQ.md)                         | Common questions                       |
 
 ## License
 

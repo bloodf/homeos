@@ -2,12 +2,12 @@ name: Build ISO
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       arch:
-        description: 'Architectures to build (comma-separated: amd64,arm64)'
-        default: 'amd64,arm64'
+        description: "Architectures to build (comma-separated: amd64,arm64)"
+        default: "amd64,arm64"
         required: false
 
 permissions:
@@ -28,6 +28,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install static-check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml
+
+      - name: Static policy checks
+        run: make check-static
 
       - name: Cache base ISO
         id: cache-base
@@ -56,10 +64,10 @@ jobs:
       - name: Download base ISO
         run: make ARCH=${{ matrix.arch }} base-iso
 
-      - name: Pin GitHub tool SHAs
+      - name: Verify GitHub tool pins are committed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash build/refresh-pins.sh --write
+        run: bash build/refresh-pins.sh --check
 
       - name: Build HomeOS ISO
         run: |

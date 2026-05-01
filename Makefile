@@ -13,7 +13,7 @@ OUT_ISO := $(DIST)/homeos-debian-13.4-$(ARCH).iso
 
 BUILDER_IMAGE := homeos-builder:latest
 
-.PHONY: help iso builder base-iso qemu-test clean refresh-pins check-pubkey
+.PHONY: help iso builder base-iso qemu-test clean refresh-pins pin-tools check-pubkey check-static
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -35,7 +35,20 @@ base-iso: ## download upstream debian netinst iso (ARCH=amd64|arm64)
 pin-tools: ## refresh github tool SHAs into bootstrap/vars/main.yml
 	bash build/refresh-pins.sh --write
 
-iso: check-pubkey pin-tools builder base-iso ## build the homeos ISO
+check-static: ## run non-VM static policy checks
+	@echo "[check] shell syntax"
+	bash -n build/*.sh bootstrap/installers/*.sh \
+	  bootstrap/roles/homeos-cli/files/homeos \
+	  bootstrap/roles/homeos-cli/files/homeos-audit-prune \
+	  bootstrap/roles/portal/templates/launch.sh.j2
+	@echo "[check] Python syntax"
+	python3 -m py_compile build/check-yaml.py build/check-markers.py
+	@echo "[check] YAML parse"
+	python3 build/check-yaml.py
+	@echo "[check] forbidden marker strings"
+	python3 build/check-markers.py
+
+iso: check-pubkey check-static builder base-iso ## build the homeos ISO from committed pins
 	mkdir -p $(DIST)
 	docker run --rm --privileged \
 	  -v $(ROOT):/work \

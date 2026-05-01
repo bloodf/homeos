@@ -1,0 +1,5 @@
+# HomeOS pinned Debian base ISO checksums.
+# Source: https://cdimage.debian.org/cdimage/release/13.4.0/<arch>/iso-cd/SHA256SUMS
+# Refresh only when intentionally moving the Debian point release used by build/download-base-iso.sh.
+0b813535dd76f2ea96eff908c65e8521512c92a0631fd41c95756ffd7d4896dc  debian-13.4.0-amd64-netinst.iso
+c31f8534597df52bd310f716d271bda30a1f58e6ff8fd9e8254eba66776c42d9  debian-13.4.0-arm64-netinst.iso

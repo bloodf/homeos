@@ -30,12 +30,15 @@ YML
 
 (cd /opt/stacks/monitoring && docker compose up -d)
 
-# Trivy weekly scan via cron
+# Trivy weekly scan via cron. Use a scoped keyring rather than apt-key.
 if ! command -v trivy >/dev/null; then
-  curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - 2>/dev/null || true
-  echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
-    > /etc/apt/sources.list.d/trivy.list
-  apt-get update -qq && apt-get install -y trivy
+	install -d -m 0755 /etc/apt/keyrings
+	curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key |
+		gpg --dearmor -o /etc/apt/keyrings/trivy.gpg
+	chmod 0644 /etc/apt/keyrings/trivy.gpg
+	echo "deb [signed-by=/etc/apt/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
+		>/etc/apt/sources.list.d/trivy.list
+	apt-get update -qq && apt-get install -y trivy
 fi
 
 cat >/etc/cron.d/homeos-trivy <<'CRON'

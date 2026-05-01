@@ -47,7 +47,8 @@ look when things go wrong.
 ┌─────────────────────────────────────────────────────────────────┐
 │ Stage C — homeos CLI (/usr/local/bin/homeos)                    │
 │   day-2 ops: status, doctor, secure, config {nas|stack|net|     │
-│              secrets|backup|rerun-bootstrap}                    │
+│              secrets|backup|portal|cosmos|gate}, install, audit  │
+│   audit replay: redacted JSONL + root-only sidecars              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,20 +231,21 @@ pre-formatted with labels. `homeos config nas add /dev/sdcN`:
 
 ## Build provenance
 
-| Item           | Pinned                                              | Verified                             |
-| -------------- | --------------------------------------------------- | ------------------------------------ |
-| Debian netinst | version `13.4.0` in `download-base-iso.sh`          | SHA256 vs official `SHA256SUMS`      |
-| Builder image  | `debian:trixie-slim`                                | by-digest possible, currently by tag |
-| Node           | `node_major: "24"` in vars/main.yml                 | NodeSource signed apt repo           |
-| Docker         | upstream apt repo                                   | Docker Inc. signed apt repo          |
-| Tailscale      | `pkgs.tailscale.com`                                | Tailscale signed apt repo            |
-| Caddy          | Cloudsmith stable                                   | Cloudsmith signed apt repo           |
-| CasaOS         | `casaos_version` in vars/main.yml                   | upstream installer                   |
-| GitHub tools   | commit SHA per repo, refreshed via `make pin-tools` | git via HTTPS                        |
-| AI CLIs (npm)  | latest at install time                              | npm registry                         |
-| AI CLIs (curl) | upstream installer URL                              | TLS only                             |
+| Item                        | Pinned                                                                                                                                            | Verified                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Debian netinst              | version `13.4.0` in `download-base-iso.sh` plus `build/debian-base-isos.sha256`                                                                   | SHA256 must match both the local pinned manifest and official upstream `SHA256SUMS`.                  |
+| Builder image               | `debian:trixie-slim` in `build/Dockerfile`                                                                                                        | OCI labels document the image purpose/source; package set is the explicit apt list in the Dockerfile. |
+| ISO builder tools           | `xorriso`, `isolinux`, `syslinux-common`, `dosfstools`, `mtools`, `genisoimage`, `rsync`, `curl`, `gnupg`, `cpio`, `gzip`, `file`, `bsdmainutils` | Installed from Debian trixie apt metadata when `make builder` runs.                                   |
+| Node                        | `node_major: "24"` in vars/main.yml                                                                                                               | NodeSource signed apt repo.                                                                           |
+| Docker                      | upstream apt repo                                                                                                                                 | Docker Inc. signed apt repo.                                                                          |
+| Tailscale                   | `pkgs.tailscale.com`                                                                                                                              | Tailscale signed apt repo.                                                                            |
+| Caddy                       | Cloudsmith stable                                                                                                                                 | Cloudsmith signed apt repo.                                                                           |
+| CasaOS                      | `casaos_version` in vars/main.yml                                                                                                                 | Upstream installer run with the pinned CasaOS version variable.                                       |
+| GitHub tools                | commit SHA per repo plus `hermes_agent_ref`                                                                                                       | `make pin-tools` resolves every configured GitHub repo and refuses partial writes.                    |
+| AI CLIs and optional stacks | moving channels where upstreams do not publish stable checksums                                                                                   | Accepted risk documented in `docs/SECURITY.md` and release notes.                                     |
 
-`make pin-tools` calls the GitHub API to fetch the current `HEAD` SHA for
-each entry in `github_tools` and rewrites the `ref:` values in
-`bootstrap/vars/main.yml`. Run this before tagging a release for full
-build reproducibility.
+`make pin-tools` calls the GitHub API to fetch current `HEAD` SHAs and rewrites
+all GitHub pins in `bootstrap/vars/main.yml`, including the dedicated Hermes
+agent pin. Run it before tagging a release and commit the result. Tagged/manual
+CI builds verify committed pins rather than refreshing them, then attach ISOs and
+matching `.sha256` files; branch pushes and pull requests do not trigger ISO builds.

@@ -12,7 +12,11 @@
   ansible.builtin.shell: |
     set -e
     if [ ! -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-      NONINTERACTIVE=1 su - {{ admin_user }} -c '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+      curl -fsSL -o "$tmp" https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+      chmod 0644 "$tmp"
+      NONINTERACTIVE=1 su - {{ admin_user }} -c "/bin/bash '$tmp'"
     fi
   args:
     executable: /bin/bash

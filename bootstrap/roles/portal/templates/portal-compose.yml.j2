@@ -11,7 +11,7 @@
 x-ttyd-common: &ttyd-common
   image: tsl0922/ttyd:latest
   restart: unless-stopped
-  network_mode: host
+  ports:
   volumes:
     - {{ admin_home }}:/home/admin
     - /opt/tools:/opt/tools:ro
@@ -88,39 +88,47 @@ services:
   ttyd-claude:
     <<: *ttyd-common
     container_name: ttyd-claude
+    ports: ["127.0.0.1:7681:7681"]
     command: ["ttyd", "-W", "-p", "7681", "-t", "titleFixed=Claude Code", "/launch.sh", "claude"]
 
   ttyd-codex:
     <<: *ttyd-common
     container_name: ttyd-codex
+    ports: ["127.0.0.1:7682:7682"]
     command: ["ttyd", "-W", "-p", "7682", "-t", "titleFixed=Codex", "/launch.sh", "codex"]
 
   ttyd-gemini:
     <<: *ttyd-common
     container_name: ttyd-gemini
+    ports: ["127.0.0.1:7683:7683"]
     command: ["ttyd", "-W", "-p", "7683", "-t", "titleFixed=Gemini", "/launch.sh", "gemini"]
 
   ttyd-cursor:
     <<: *ttyd-common
     container_name: ttyd-cursor
+    ports: ["127.0.0.1:7684:7684"]
     command: ["ttyd", "-W", "-p", "7684", "-t", "titleFixed=Cursor Agent", "/launch.sh", "cursor-agent"]
 
   ttyd-opencode:
     <<: *ttyd-common
     container_name: ttyd-opencode
+    ports: ["127.0.0.1:7685:7685"]
     command: ["ttyd", "-W", "-p", "7685", "-t", "titleFixed=OpenCode", "/launch.sh", "opencode"]
 
   ttyd-kimi:
     <<: *ttyd-common
     container_name: ttyd-kimi
+    ports: ["127.0.0.1:7686:7686"]
     command: ["ttyd", "-W", "-p", "7686", "-t", "titleFixed=Kimi", "/launch.sh", "kimi"]
 
   ttyd-hermes:
     <<: *ttyd-common
     container_name: ttyd-hermes
+    ports: ["127.0.0.1:7687:7687"]
     command: ["ttyd", "-W", "-p", "7687", "-t", "titleFixed=Hermes Agent", "/launch.sh", "hermes"]
 
   ttyd-shell:
     <<: *ttyd-common
     container_name: ttyd-shell
+    ports: ["127.0.0.1:7688:7688"]
     command: ["ttyd", "-W", "-p", "7688", "-t", "titleFixed=Shell", "/launch.sh", "shell"]

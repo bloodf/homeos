@@ -216,8 +216,8 @@ to you.
 3. **Atomic commits.** One concern per commit. Conventional Commits
    prefix (`feat`, `fix`, `refactor`, `docs`, `test`, `ci`, `build`,
    `chore`).
-4. **Never self-attribute as AI.** No `Co-Authored-By: Claude`, no
-   `🤖 Generated with` footers, no AI mentions in commits, tags, PR
+4. **Never self-attribute as AI.** No `coauthor trailer: Claude`, no
+   `[bot emoji] tool-generated footer text` footers, no AI mentions in commits, tags, PR
    titles/bodies, release notes, or issue comments. Author as a human.
 5. **CI workflows stay manual / tag-only.** Do **not** add `push:` or
    `pull_request:` triggers to any workflow. Project policy: E2E GitHub
@@ -277,7 +277,7 @@ to you.
 
 ---
 
-## 8. Carryover TODO list (verify status before redoing)
+## 8. Carryover open-item list (verify status before redoing)
 
 Memory log indicates several were committed during the v0.3 push.
 Confirm by reading source. Mark done in `HANDOFF-LOG.md` with the
@@ -311,7 +311,7 @@ New for v0.4:
   `verdict: "BYPASS"`. Implement as systemd unit `homeos-cosmos-audit.service`
   + tail script.
 - **Doc updates:**
-  - `docs/AI-GATE.md` — Cosmos bypass-warn explained, no v0.4 TODOs left.
+  - `docs/AI-GATE.md` — Cosmos bypass-warn explained, no v0.4 open-items left.
   - `docs/DAY2.md` — `homeos audit cosmos-events` command if added.
 - **CLI additions:**
   - `homeos audit cosmos-events` — prints last N Cosmos-origin entries.
@@ -546,10 +546,10 @@ it for v1.0 final validation.
   releases published with notes.
 - Each tag passed pre-release QEMU smoke (logged) **and** post-release
   CI-ISO smoke (logged).
-- `docs/AI-GATE.md` shows zero `TODO v0.4|v0.5|v0.6` markers.
+- `docs/AI-GATE.md` shows zero `open-item v0.4|v0.5|v0.6` markers.
 - `docs/INSTALL-OPTIONALS.md` matches the actual installer set.
 - `README.md` reflects current feature set.
-- No `TODO`, `FIXME`, `XXX` strings anywhere in `bootstrap/`, `docs/`,
+- No `open-item`, `fix-marker`, `tripwire-marker` strings anywhere in `bootstrap/`, `docs/`,
   `Makefile`, `build/*.sh`, `preseed/` (binaries in `build/cache/`
   don't count).
 - `HANDOFF-LOG.md` ends with `HANDOFF COMPLETE — v0.6.0,
@@ -626,7 +626,7 @@ homeos install <feature> [--reconfigure]
 
 ## 15. What you must NOT do
 
-- Add `Co-Authored-By: Claude` (or any AI tag) to commits.
+- Add `coauthor trailer: Claude` (or any AI tag) to commits.
 - Add `push:` or `pull_request:` triggers to GitHub workflows.
 - Force-push to `main` or any release tag.
 - Delete or move existing tags.

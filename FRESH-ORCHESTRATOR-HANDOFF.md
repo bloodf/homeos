@@ -3,6 +3,7 @@
 You are the fresh orchestrator agent for HomeOS.
 
 Repo:
+
 - Path: `/Users/heitor/Developer/github.com/bloodf/homeos`
 - Origin: `https://github.com/bloodf/homeos`
 - Current HEAD at handoff: `35e10c8`
@@ -12,6 +13,7 @@ Repo:
 - Current known unrelated dirty local state may include `.omc/`, `.claude/`, `.pi/`, `.pi-lens/`; ignore/exclude those unless user explicitly asks.
 
 Important policy update:
+
 - `ROADMAP-TO-0.9.md` supersedes old `HANDOFF.md` QEMU requirements for v0.5-v0.9.
 - v0.7 is now **bootstrap fixes**.
 - v1.0 is **final full QEMU / full ISO validation only**.
@@ -30,6 +32,7 @@ Important policy update:
   - final v1.0 visible QEMU validation
 
 Core files:
+
 - `ROADMAP-TO-0.9.md` — authoritative roadmap/checklist.
 - `SUBAGENT-PROMPTS-TO-0.9.md` — ready-to-copy worker/reviewer prompts.
 - `HANDOFF.md` — historical/background only; do not follow its per-tag QEMU requirement for v0.5-v0.9.
@@ -38,16 +41,18 @@ Core files:
 - `release-notes/v0.6.0.md+` still need to be created as milestones land.
 
 Workflow:
+
 1. You are the orchestrator. Use subagents for implementation/review.
 2. Workers may edit files but must not commit/tag/push/release.
 3. Workers must update `ROADMAP-TO-0.9.md` checklist items they complete from `[ ]` to `[x]`, with short evidence/date.
-4. Workers must not add `TODO`, `FIXME`, or `XXX` markers in source/docs. Incomplete work belongs in `ROADMAP-TO-0.9.md`.
+4. Workers must not add inline work-marker strings in source/docs. Incomplete work belongs in `ROADMAP-TO-0.9.md`.
 5. Use reviewers after worker changes.
 6. You alone stage/commit/tag/release after review passes.
 7. Keep commits atomic and conventional.
 8. Never add AI attribution footers or co-author lines.
 
 Current milestone status:
+
 - v0.4.0: released.
 - v0.5.0: Cosmos Docker socket shim implemented and reviewed, but not yet tagged/released.
   - Need final orchestrator verification from static checks/review, then commit any roadmap checkbox updates if needed, tag, release, watch CI.
@@ -58,6 +63,7 @@ Current milestone status:
 - v1.0.0: final visible full QEMU validation only, done after v0.9.
 
 Immediate next steps:
+
 1. Read:
    - `ROADMAP-TO-0.9.md`
    - `SUBAGENT-PROMPTS-TO-0.9.md`
@@ -72,6 +78,7 @@ Immediate next steps:
 8. Do not run QEMU until v1.0 testing prompt is explicitly invoked by user.
 
 Validation before each pre-v1.0 release:
+
 - Static shell checks: `bash -n ...`
 - Python compile where relevant: `python3 -m py_compile ...`
 - YAML parse / `yamllint` if available
@@ -81,6 +88,7 @@ Validation before each pre-v1.0 release:
 - No ISO full smoke unless orchestrator explicitly approves a build-only check; still no VM boot.
 
 Release ritual for v0.5-v0.9:
+
 1. Confirm clean product tree, excluding local tool state.
 2. Run static/targeted validation.
 3. Update release notes.
@@ -93,5 +101,6 @@ Release ritual for v0.5-v0.9:
 10. Record result in `HANDOFF-LOG.md`.
 
 Remember:
+
 - The goal is to reach v0.9 with code/docs/release process ready.
 - v1.0 is reserved for the visible final QEMU validation and release.

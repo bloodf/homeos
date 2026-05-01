@@ -20,11 +20,17 @@
   changed_when: "'Pouring' in (ai_brew.stdout | default('')) or 'Installing' in (ai_brew.stdout | default(''))"
   failed_when: false
 
-- name: Install AI CLIs via curl|sh
+- name: Install AI CLIs from reviewed upstream installer URLs
   ansible.builtin.shell: |
     set -e
     if ! command -v {{ item.name }} >/dev/null 2>&1; then
-      curl {{ item.curl_flags | default('-fsSL') }} {{ item.url }} | {{ item.shell }}
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+      curl {{ item.curl_flags | default('-fsSL') }} -o "$tmp" {{ item.url }}
+      if [ -n "{{ item.sha256 | default('') }}" ]; then
+        echo "{{ item.sha256 }}  $tmp" | sha256sum -c -
+      fi
+      {{ item.shell }} "$tmp"
     fi
   args:
     executable: /bin/bash

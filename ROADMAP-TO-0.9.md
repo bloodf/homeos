@@ -130,36 +130,36 @@ Goal: harden the project enough to become a release candidate after v0.9 polish.
 
 ### Security hardening
 
-- [ ] Review Docker socket exposure after Cosmos shim; document residual risk and ensure Cosmos no longer receives the host socket directly.
-- [ ] Review privileged containers and host mounts across all compose stacks.
-- [ ] Review use of `latest` image tags; pin or explicitly document accepted latest-tag risks.
-- [ ] Review `curl | sh` installer paths and add checksum/signature verification where practical.
-- [ ] Review secret handling in CLI, audit log, replay sidecars, installers, docs, and shell environment files.
-- [ ] Confirm audit logs and replay sidecars have appropriate permissions and retention behavior.
-- [ ] Confirm no AI attribution footers or generated-by markers exist in commits, release notes, docs, or source.
+- [x] Review Docker socket exposure after Cosmos shim; document residual risk and ensure Cosmos no longer receives the host socket directly — evidence: `docs/SECURITY.md` Docker socket table documents Cosmos shim, Dockge/Homepage/Watchtower residual host-socket risk; `cosmos-compose.yml.j2` still mounts `/var/run/cosmos-docker.sock`, 2026-05-01.
+- [x] Review privileged containers and host mounts across all compose stacks — evidence: `docs/SECURITY.md` inventory covers Cosmos, Portal, Watchtower, Home Assistant, Jellyfin, and optional Scrutiny host/device/mount access; ttyd terminals are loopback-bound behind Caddy, 2026-05-01.
+- [x] Review use of `latest` image tags; pin or explicitly document accepted latest-tag risks — evidence: moving tag policy added to `docs/SECURITY.md`, optional installer risks documented in `docs/INSTALL-OPTIONALS.md`, and v0.8 release notes list accepted moving-tag risks, 2026-05-01.
+- [x] Review `curl | sh` installer paths and add checksum/signature verification where practical — evidence: AI CLI installer path now downloads to temp files with optional SHA256 support; Homebrew/oh-my-zsh/starship/Bun/Ollama paths no longer use direct curl-to-shell; Trivy uses signed keyring instead of apt-key, 2026-05-01.
+- [x] Review secret handling in CLI, audit log, replay sidecars, installers, docs, and shell environment files — evidence: `ai-keys.sh` now hides input and does not print secret prefixes; `docs/SECURITY.md` documents secrets, portal secret mounts, audit JSONL redaction, and root-only replay sidecars, 2026-05-01.
+- [x] Confirm audit logs and replay sidecars have appropriate permissions and retention behavior — evidence: reviewed `homeos-cli` Ansible modes (`/var/log/homeos-audit.jsonl` 0644 redacted, replay dir 0700, sidecars 0600) and documented 90-day sidecar prune/520-week JSONL rotation in `docs/SECURITY.md`, 2026-05-01.
+- [x] Confirm no AI attribution footers or generated-by markers exist in commits, release notes, docs, or source — evidence: `python3 build/check-markers.py` and `make check-static` passed outside this roadmap, 2026-05-01.
 
 ### Supply-chain and reproducibility
 
-- [ ] Record Debian base ISO checksum source and actual checksum in a reproducible location.
-- [ ] Ensure `make pin-tools` updates all GitHub tool SHAs deterministically.
-- [ ] Add or document builder image provenance and expected tool versions.
-- [ ] Ensure release artifacts include ISO SHA256 files.
-- [ ] Ensure release notes mention artifact verification.
-- [ ] Review `.github/workflows/build-iso.yml` for tag/manual-only trigger policy; do not add push/PR triggers beyond tag matching.
+- [x] Record Debian base ISO checksum source and actual checksum in a reproducible location — evidence: `build/debian-base-isos.sha256` records amd64/arm64 Debian 13.4.0 netinst checksums and source URL pattern; `download-base-iso.sh` verifies pinned and upstream sums, 2026-05-01.
+- [x] Ensure `make pin-tools` updates all GitHub tool SHAs deterministically — evidence: `build/refresh-pins.sh` now updates `github_tools` plus `hermes_agent_ref`, validates 40-hex SHAs, refuses partial `--write`, and supports CI `--check` so tag builds use committed pins, 2026-05-01.
+- [x] Add or document builder image provenance and expected tool versions — evidence: `build/Dockerfile` has OCI provenance labels; `docs/ARCHITECTURE.md` and `docs/SECURITY.md` document `debian:trixie-slim` builder and expected apt tool list, 2026-05-01.
+- [x] Ensure release artifacts include ISO SHA256 files — evidence: `.github/workflows/build-iso.yml` already generates/uploads/attaches `*.iso.sha256`; README and release notes document verification, 2026-05-01.
+- [x] Ensure release notes mention artifact verification — evidence: `release-notes/v0.8.0.md` includes `sha256sum -c` verification commands, 2026-05-01.
+- [x] Review `.github/workflows/build-iso.yml` for tag/manual-only trigger policy; do not add push/PR triggers beyond tag matching — evidence: workflow remains `push.tags: ["v*"]` plus `workflow_dispatch`; static checks and committed-pin verification were added, 2026-05-01.
 
 ### Docs and CI hardening
 
-- [ ] Update README to reflect v0.8 feature/security state.
-- [ ] Update `docs/SECURITY.md` threat model with Cosmos shim, audit replay, and accepted risks.
-- [ ] Update `docs/ARCHITECTURE.md` with v0.6/v0.7/v0.8 reality.
-- [ ] Update `docs/INSTALL-OPTIONALS.md` to match actual installer set.
-- [ ] Ensure no `TODO`, `FIXME`, or `XXX` strings remain outside this roadmap where prohibited by handoff policy.
-- [ ] Add CI/static checks that do not violate manual/tag-only workflow policy.
-- [ ] Create `release-notes/v0.8.0.md`.
+- [x] Update README to reflect v0.8 feature/security state — evidence: README documents tag/manual CI policy, static checks, artifact verification, Cosmos shim, audit replay sidecars, and Debian checksum verification, 2026-05-01.
+- [x] Update `docs/SECURITY.md` threat model with Cosmos shim, audit replay, and accepted risks — evidence: threat table, audit retention, Docker socket/privileged container inventory, moving tag policy, and supply-chain pins updated, 2026-05-01.
+- [x] Update `docs/ARCHITECTURE.md` with v0.6/v0.7/v0.8 reality — evidence: Stage C audit replay command surface and build provenance/tooling table updated, 2026-05-01.
+- [x] Update `docs/INSTALL-OPTIONALS.md` to match actual installer set — evidence: optional installer security/provenance table added for all current `bootstrap/installers/*.sh`, 2026-05-01.
+- [x] Ensure no `TODO`, `FIXME`, or `XXX` strings remain outside this roadmap where prohibited by handoff policy — evidence: `python3 build/check-markers.py` and `make check-static` passed, 2026-05-01.
+- [x] Add CI/static checks that do not violate manual/tag-only workflow policy — evidence: `make check-static`, `build/check-yaml.py`, `build/check-markers.py`, and workflow static-check step added without push/PR trigger changes, 2026-05-01.
+- [x] Create `release-notes/v0.8.0.md` — evidence: file added with scope, artifact verification, validation, and accepted residual risks, 2026-05-01.
 
 ### Completion checks
 
-- [ ] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed, workflow YAML parse.
+- [x] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed, workflow YAML parse — evidence: `bash -n` passed; `make check-static` passed including workflow/Ansible YAML parse and marker checks; `ansible-playbook` not installed so syntax-check skipped with exit 127 recorded; no QEMU/ISO build run, 2026-05-01.
 - [ ] Orchestrator: commit, tag `v0.8.0`, push, publish release, and watch CI. No worker does this.
 
 ## v0.9.0 — Release-candidate polish

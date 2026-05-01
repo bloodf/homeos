@@ -13,7 +13,11 @@
   ansible.builtin.shell: |
     set -e
     if [ ! -d "{{ admin_home }}/.oh-my-zsh" ]; then
-      su - {{ admin_user }} -c 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+      curl -fsSL -o "$tmp" https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+      chmod 0644 "$tmp"
+      su - {{ admin_user }} -c "sh '$tmp' --unattended"
     fi
   args:
     executable: /bin/bash
@@ -39,7 +43,10 @@
   ansible.builtin.shell: |
     set -e
     if ! command -v starship >/dev/null 2>&1; then
-      curl -fsSL https://starship.rs/install.sh | sh -s -- -y
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+      curl -fsSL -o "$tmp" https://starship.rs/install.sh
+      sh "$tmp" -y
     fi
   args:
     executable: /bin/bash
@@ -51,7 +58,7 @@
     dest: "{{ admin_home }}/.config/starship.toml"
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
-    mode: '0644'
+    mode: "0644"
 
 - name: Drop homeos zshrc snippet
   ansible.builtin.copy:
@@ -59,7 +66,7 @@
     dest: "{{ admin_home }}/.config/homeos.zsh"
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
-    mode: '0644'
+    mode: "0644"
 
 - name: Wire .zshrc
   ansible.builtin.blockinfile:
@@ -67,7 +74,7 @@
     create: true
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
-    mode: '0644'
+    mode: "0644"
     marker: "# {mark} HOMEOS"
     block: |
       ZSH_THEME=""

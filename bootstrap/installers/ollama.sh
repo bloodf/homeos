@@ -12,27 +12,36 @@ echo "  3) CPU-only (slow, ~7B max — refuse by default)"
 read -r -p "choice [1-3]: " gpu
 
 case "$gpu" in
-  1)
-    if ! command -v nvidia-smi >/dev/null; then
-      echo "NVIDIA driver not installed. Install via:"
-      echo "  sudo apt install -y nvidia-driver firmware-misc-nonfree"
-      echo "  reboot, re-run this installer."
-      exit 1
-    fi
-    ;;
-  2) : ;;
-  3)
-    read -r -p "CPU-only really? [y/N]: " ack
-    [[ "$ack" =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
-    ;;
-  *) echo "invalid"; exit 1 ;;
+1)
+	if ! command -v nvidia-smi >/dev/null; then
+		echo "NVIDIA driver not installed. Install via:"
+		echo "  sudo apt install -y nvidia-driver firmware-misc-nonfree"
+		echo "  reboot, re-run this installer."
+		exit 1
+	fi
+	;;
+2) : ;;
+3)
+	read -r -p "CPU-only really? [y/N]: " ack
+	[[ "$ack" =~ ^[Yy]$ ]] || {
+		echo "aborted"
+		exit 1
+	}
+	;;
+*)
+	echo "invalid"
+	exit 1
+	;;
 esac
 
 read -r -p "model to pull [qwen3:7b]: " model
 model="${model:-qwen3:7b}"
 
 if ! command -v ollama >/dev/null; then
-  curl -fsSL https://ollama.com/install.sh | sh
+	tmp="$(mktemp)"
+	trap 'rm -f "$tmp"' EXIT
+	curl -fsSL -o "$tmp" https://ollama.com/install.sh
+	sh "$tmp"
 fi
 
 mkdir -p /opt/stacks/ollama
@@ -45,7 +54,8 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:11434:11434"]
     volumes: [ollama-data:/root/.ollama]
-$( [ "$gpu" = "1" ] && cat <<NVIDIA
+$(
+	[ "$gpu" = "1" ] && cat <<NVIDIA
     deploy:
       resources:
         reservations:
