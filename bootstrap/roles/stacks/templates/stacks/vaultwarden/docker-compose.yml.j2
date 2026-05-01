@@ -1,0 +1,16 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      SIGNUPS_ALLOWED: "false"
+      DOMAIN: "https://vault.homeos.local"
+      WEBSOCKET_ENABLED: "true"
+    ports:
+      - "8222:80"
+    volumes:
+      - /srv/vaultwarden:/data
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"

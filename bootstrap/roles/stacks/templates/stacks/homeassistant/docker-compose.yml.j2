@@ -1,0 +1,14 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      - /srv/homeassistant:/config
+      - /run/dbus:/run/dbus:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"

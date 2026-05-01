@@ -1,0 +1,67 @@
+---
+# HomeOS pinned versions. Update via `make refresh-pins`.
+
+node_major: "24"
+
+casaos_version: "v0.4.15"   # bump after manual smoke-test
+
+tailscale_channel: "stable"
+
+cockpit_45drives_repo: "https://repo.45drives.com/lists/45drives.sources"
+
+caddy_apt_keyring: "https://dl.cloudsmith.io/public/caddy/stable/gpg.key"
+caddy_apt_repo: "https://dl.cloudsmith.io/public/caddy/stable/deb/debian"
+
+# AI CLIs
+ai_clis_npm:
+  - "@anthropic-ai/claude-code"
+  - "@openai/codex"
+  - "@google/gemini-cli"
+
+ai_clis_brew:
+  # try brew taps first, fall back handled in role
+  - { tap: "sst/tap",        formula: "opencode" }
+
+ai_clis_curl:
+  - { name: "cursor-agent", url: "https://cursor.com/install", shell: "bash" }
+
+ai_clis_pipx:
+  - "kimi-cli"   # confirm Moonshot upstream package name at build
+
+# GitHub tools — clone + build under /opt/tools/<name>
+github_tools:
+  - { name: "hindsight",          repo: "https://github.com/vectorize-io/hindsight.git",          ref: "main",   build: "node" }
+  - { name: "code-review-graph",  repo: "https://github.com/tirth8205/code-review-graph.git",      ref: "main",   build: "pipx" }
+  - { name: "portless",           repo: "https://github.com/vercel-labs/portless.git",             ref: "main",   build: "node" }
+  - { name: "claude-context",     repo: "https://github.com/zilliztech/claude-context.git",        ref: "main",   build: "node" }
+  - { name: "utoo",               repo: "https://github.com/utooland/utoo.git",                    ref: "main",   build: "auto" }
+  - { name: "hermes-agent",       repo: "https://github.com/NousResearch/hermes-agent.git",        ref: "main",   build: "pipx" }
+  - { name: "OpenViking",         repo: "https://github.com/volcengine/OpenViking.git",            ref: "main",   build: "compose" }
+  - { name: "oh-my-opencode",     repo: "https://github.com/opensoft/oh-my-opencode.git",          ref: "main",   build: "clone-only", dest: "{{ admin_home }}/.config/opencode/plugins/oh-my-opencode" }
+  - { name: "oh-my-claudecode",   repo: "https://github.com/yeachan-heo/oh-my-claudecode.git",     ref: "main",   build: "clone-only", dest: "{{ admin_home }}/.claude/oh-my-claudecode" }
+  - { name: "claude-mem",         repo: "https://github.com/thedotmack/claude-mem.git",            ref: "main",   build: "claude-mem" }
+
+# Firewall ports (UFW)
+firewall_allow:
+  - 22       # ssh
+  - 80       # http
+  - 443      # https
+  - 445      # samba
+  - 2049     # nfs
+  - 8123     # home assistant
+  - 8096     # jellyfin
+  - 9090     # cockpit
+  - 81       # casaos
+
+# Brew formulas baseline
+brew_formulas:
+  - gh
+  - lazygit
+  - lazydocker
+  - neovim
+  - eza
+  - bat
+  - delta
+  - dust
+  - procs
+  - tokei

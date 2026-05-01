@@ -1,0 +1,8 @@
+dist/
+*.iso
+*.iso.sha256
+secrets/authorized_keys
+secrets/*.env
+.envrc
+.DS_Store
+build/cache/

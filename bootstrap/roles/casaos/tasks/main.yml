@@ -1,0 +1,28 @@
+---
+- name: Check CasaOS already installed
+  ansible.builtin.stat:
+    path: /usr/bin/casaos
+  register: casaos_bin
+
+- name: Install CasaOS (pinned)
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://get.casaos.io -o /tmp/casaos-install.sh
+    CASAOS_VERSION="{{ casaos_version }}" bash /tmp/casaos-install.sh
+  args:
+    executable: /bin/bash
+  when: not casaos_bin.stat.exists
+
+- name: Ensure CasaOS service running
+  ansible.builtin.systemd:
+    name: casaos
+    enabled: true
+    state: started
+
+- name: Disable CasaOS file-sharing app (Cockpit owns shares)
+  ansible.builtin.copy:
+    dest: /etc/casaos/homeos.conf
+    mode: '0644'
+    content: |
+      # Cockpit + 45Drives owns Samba/NFS. Do not enable CasaOS file-sharing.
+      file_sharing_disabled = true

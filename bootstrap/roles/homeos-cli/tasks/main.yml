@@ -1,0 +1,35 @@
+---
+- name: Install homeos CLI
+  ansible.builtin.copy:
+    src: homeos
+    dest: /usr/local/bin/homeos
+    mode: '0755'
+
+- name: Install bash completion
+  ansible.builtin.copy:
+    src: homeos.bash-completion
+    dest: /etc/bash_completion.d/homeos
+    mode: '0644'
+
+- name: Install zsh completion
+  ansible.builtin.copy:
+    src: _homeos
+    dest: /usr/local/share/zsh/site-functions/_homeos
+    mode: '0644'
+
+- name: Secrets dir for admin
+  ansible.builtin.file:
+    path: "{{ admin_home }}/.config/homeos"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0700'
+
+- name: Empty secrets file
+  ansible.builtin.copy:
+    dest: "{{ admin_home }}/.config/homeos/secrets.env"
+    content: "# HomeOS secrets — populated by `homeos config secrets set KEY=VAL`\n"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0600'
+    force: false

@@ -1,0 +1,43 @@
+{
+    # Caddy global options
+    auto_https disable_redirects
+    email admin@homeos.local
+}
+
+# LAN HTTP fallback (no TLS) — handy until Tailscale is up.
+:80 {
+    handle_path /casa* { reverse_proxy localhost:81 }
+    handle_path /ha*   { reverse_proxy localhost:8123 }
+    handle_path /jelly* { reverse_proxy localhost:8096 }
+    handle_path /cockpit* { reverse_proxy https://localhost:9090 { transport http { tls_insecure_skip_verify } } }
+    handle_path /vault* { reverse_proxy localhost:8222 }
+    handle / { respond "HomeOS up. Use Tailscale magic DNS for HTTPS." 200 }
+}
+
+# Tailscale magic DNS hosts. Caddy fetches certs via tailscale built-in.
+# Replace homeos.<tailnet>.ts.net at runtime via `homeos config net caddy-reload`.
+{$HOMEOS_TAILNET:homeos.example.ts.net}:443 {
+    tls {
+        get_certificate tailscale
+    }
+    encode gzip zstd
+
+    @casa host casa.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @casa { reverse_proxy localhost:81 }
+
+    @ha host ha.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @ha { reverse_proxy localhost:8123 }
+
+    @jelly host jelly.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @jelly { reverse_proxy localhost:8096 }
+
+    @cockpit host cockpit.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @cockpit {
+        reverse_proxy https://localhost:9090 {
+            transport http { tls_insecure_skip_verify }
+        }
+    }
+
+    @vault host vault.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @vault { reverse_proxy localhost:8222 }
+}

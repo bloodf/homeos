@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# HomeOS day-2 ops dispatcher.
+# Usage: homeos <command> [args...]
+set -euo pipefail
+
+ADMIN_USER="${SUDO_USER:-admin}"
+ADMIN_HOME="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
+HOMEOS_ROOT="/opt/homeos"
+SECRETS="$ADMIN_HOME/.config/homeos/secrets.env"
+NAS_VARS="$HOMEOS_ROOT/bootstrap/vars/nas_disks.yml"
+BACKUP_ENV="/etc/homeos/backup.env"
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+err()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+need_root() { [ "$(id -u)" -eq 0 ] || err "run with sudo"; }
+
+usage() {
+  cat <<'EOF'
+homeos — HomeOS day-2 ops
+
+  homeos status                              show services, disks, containers, GPU
+  homeos doctor                              run smoke tests
+  homeos config rerun-bootstrap              re-run Ansible playbook
+  homeos config secrets list
+  homeos config secrets set KEY=VAL          (or KEY VAL)
+  homeos config secrets get KEY
+  homeos config nas list
+  homeos config nas add /dev/sdX[N]          mount + share USB drive
+  homeos config nas remove LABEL
+  homeos config stack up    NAME
+  homeos config stack down  NAME
+  homeos config stack update NAME            pull + recreate
+  homeos config stack logs  NAME
+  homeos config net tailscale-up [--auth-key KEY]
+  homeos config net caddy-reload
+  homeos config backup target set /srv/nas/<label>
+  homeos config backup run                   trigger backup now
+EOF
+}
+
+# ---------- status ----------
+cmd_status() {
+  bold "== services =="
+  systemctl is-active docker tailscaled cockpit.socket casaos caddy smbd nfs-kernel-server 2>/dev/null | paste <(echo -e "docker\ntailscaled\ncockpit\ncasaos\ncaddy\nsmbd\nnfs") - || true
+  bold "== disks =="
+  lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,UUID
+  bold "== containers =="
+  docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "docker not running"
+  bold "== GPU =="
+  vainfo 2>&1 | grep -E 'Driver version|VAProfile' | head -10 || true
+  bold "== tailscale =="
+  tailscale status --self 2>/dev/null | head -5 || echo "tailscale not up"
+}
+
+# ---------- doctor ----------
+cmd_doctor() {
+  fails=0
+  check() {
+    local label="$1"; shift
+    if "$@" >/dev/null 2>&1; then printf "  \033[32m✓\033[0m %s\n" "$label"
+    else printf "  \033[31m✗\033[0m %s\n" "$label"; fails=$((fails+1)); fi
+  }
+  bold "== runtime =="
+  check "node v24"        bash -c 'node -v | grep -q "^v24\\."'
+  check "docker"          docker --version
+  check "docker compose"  docker compose version
+  check "brew"            sudo -u "$ADMIN_USER" /home/linuxbrew/.linuxbrew/bin/brew --version
+  bold "== AI CLIs =="
+  for cli in claude codex gemini cursor-agent opencode kimi; do
+    check "$cli"          sudo -u "$ADMIN_USER" bash -lc "command -v $cli"
+  done
+  bold "== services =="
+  check "GPU iHD"         bash -c 'vainfo 2>/dev/null | grep -q iHD'
+  check "cockpit"         systemctl is-active cockpit.socket
+  check "casaos"          systemctl is-active casaos
+  check "tailscaled"      systemctl is-active tailscaled
+  bold "== HTTP =="
+  check "HA :8123"        curl -fsS http://localhost:8123 -o /dev/null
+  check "Jellyfin :8096"  curl -fsS http://localhost:8096 -o /dev/null
+  check "CasaOS :81"      curl -fsS http://localhost:81 -o /dev/null
+  check "Cockpit :9090"   curl -fsSk https://localhost:9090 -o /dev/null
+  bold "== tools =="
+  for d in hindsight code-review-graph portless claude-context utoo hermes-agent OpenViking oh-my-opencode oh-my-claudecode claude-mem; do
+    check "/opt/tools/$d" test -d "/opt/tools/$d"
+  done
+  echo
+  if [ "$fails" -eq 0 ]; then bold "ALL OK"; else bold "$fails check(s) failed"; exit 1; fi
+}
+
+# ---------- config rerun-bootstrap ----------
+cmd_rerun_bootstrap() {
+  need_root
+  ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" "$@"
+}
+
+# ---------- secrets ----------
+secrets_path() {
+  local home; home="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
+  echo "$home/.config/homeos/secrets.env"
+}
+
+cmd_secrets() {
+  local sub="${1:-}"; shift || true
+  local f; f="$(secrets_path)"
+  [ -f "$f" ] || install -m 600 -o "$ADMIN_USER" -g "$ADMIN_USER" /dev/null "$f"
+  case "$sub" in
+    list) sed 's/=.*/=***/' "$f" ;;
+    get)  local k="${1:?KEY required}"; grep -E "^$k=" "$f" | head -1 | cut -d= -f2- ;;
+    set)
+      local arg="${1:?KEY=VAL or KEY VAL required}"
+      local k v
+      if [[ "$arg" == *=* ]]; then k="${arg%%=*}"; v="${arg#*=}"; else k="$arg"; v="${2:?VAL required}"; fi
+      sed -i "/^${k}=/d" "$f"
+      echo "${k}=${v}" >> "$f"
+      chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_USER" "$f"
+      echo "set $k"
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- nas ----------
+cmd_nas() {
+  local sub="${1:-}"; shift || true
+  case "$sub" in
+    list)
+      sudo -u "$ADMIN_USER" cat "$NAS_VARS" 2>/dev/null || true
+      lsblk -o NAME,LABEL,SIZE,FSTYPE,UUID,MOUNTPOINT
+      ;;
+    add)
+      need_root
+      local dev="${1:?device required, e.g. /dev/sdc1}"
+      local uuid fstype label
+      uuid="$(blkid -s UUID -o value "$dev")"
+      fstype="$(blkid -s TYPE -o value "$dev")"
+      label="$(blkid -s LABEL -o value "$dev" || true)"
+      [ -n "$label" ] || label="nas-$(echo "$uuid" | tr -d - | head -c8)"
+      [ -n "$uuid" ] || err "no UUID for $dev"
+      python3 - <<PY
+import yaml, pathlib
+p = pathlib.Path("$NAS_VARS")
+data = yaml.safe_load(p.read_text()) or {}
+disks = data.setdefault("nas_disks", []) or []
+if not any(d.get("uuid")=="$uuid" for d in disks):
+    disks.append({"uuid":"$uuid","label":"$label","fstype":"$fstype"})
+data["nas_disks"]=disks
+p.write_text(yaml.safe_dump(data, sort_keys=False))
+PY
+      ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" --tags nas || \
+      ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml"
+      echo "share: //$(hostname)/$label"
+      ;;
+    remove)
+      need_root
+      local label="${1:?label required}"
+      python3 - <<PY
+import yaml, pathlib
+p = pathlib.Path("$NAS_VARS")
+data = yaml.safe_load(p.read_text()) or {}
+data["nas_disks"] = [d for d in (data.get("nas_disks") or []) if d.get("label")!="$label"]
+p.write_text(yaml.safe_dump(data, sort_keys=False))
+PY
+      systemctl disable --now "srv-nas-${label}.mount" 2>/dev/null || true
+      ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" || true
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- stack ----------
+cmd_stack() {
+  local sub="${1:?up|down|update|logs}"; local name="${2:?stack name}"
+  local dir="/opt/stacks/$name"
+  [ -d "$dir" ] || err "no stack at $dir"
+  case "$sub" in
+    up)     (cd "$dir" && docker compose up -d) ;;
+    down)   (cd "$dir" && docker compose down) ;;
+    update) (cd "$dir" && docker compose pull && docker compose up -d) ;;
+    logs)   (cd "$dir" && docker compose logs -f) ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- net ----------
+cmd_net() {
+  local sub="${1:-}"; shift || true
+  case "$sub" in
+    tailscale-up)
+      need_root
+      local key=""
+      while [ $# -gt 0 ]; do
+        case "$1" in --auth-key) key="$2"; shift 2 ;; *) shift ;; esac
+      done
+      if [ -n "$key" ]; then
+        tailscale up --ssh --accept-routes --auth-key "$key"
+      else
+        tailscale up --ssh --accept-routes
+      fi
+      tailscale status
+      local fqdn; fqdn="$(tailscale status --json 2>/dev/null | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["Self"]["DNSName"].rstrip(".") if d.get("Self") else "")' 2>/dev/null || true)"
+      [ -n "$fqdn" ] && echo "HOMEOS_TAILNET=$fqdn" > /etc/default/caddy
+      systemctl reload caddy 2>/dev/null || true
+      ;;
+    caddy-reload)
+      need_root
+      systemctl reload caddy
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- backup ----------
+cmd_backup() {
+  local sub="${1:?target|run}"; shift || true
+  case "$sub" in
+    target)
+      local action="${1:?set}"; local path="${2:?path required}"
+      need_root
+      [ "$action" = "set" ] || err "only 'set' supported"
+      sed -i "s|^RESTIC_REPOSITORY=.*|RESTIC_REPOSITORY=$path|" "$BACKUP_ENV"
+      mkdir -p "$path"
+      echo "backup target: $path"
+      ;;
+    run)
+      need_root
+      /usr/local/sbin/homeos-backup
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- dispatch ----------
+main() {
+  local top="${1:-}"; shift || true
+  case "$top" in
+    status) cmd_status "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    config)
+      local section="${1:-}"; shift || true
+      case "$section" in
+        rerun-bootstrap) cmd_rerun_bootstrap "$@" ;;
+        secrets)         cmd_secrets "$@" ;;
+        nas)             cmd_nas "$@" ;;
+        stack)           cmd_stack "$@" ;;
+        net)             cmd_net "$@" ;;
+        backup)          cmd_backup "$@" ;;
+        *) usage; exit 2 ;;
+      esac
+      ;;
+    ""|-h|--help|help) usage ;;
+    *) usage; exit 2 ;;
+  esac
+}
+main "$@"

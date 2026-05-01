@@ -1,0 +1,12 @@
+[Unit]
+Description=HomeOS NAS mount {{ item.label }}
+After=local-fs.target
+
+[Mount]
+What=/dev/disk/by-uuid/{{ item.uuid }}
+Where=/srv/nas/{{ item.label }}
+Type={{ item.fstype }}
+Options=nofail,x-systemd.device-timeout=10s,noatime{% if item.fstype in ['exfat','ntfs'] %},uid=1000,gid=1000{% endif %}
+
+[Install]
+WantedBy=multi-user.target

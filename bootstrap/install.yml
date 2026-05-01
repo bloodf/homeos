@@ -1,0 +1,68 @@
+---
+# HomeOS first-boot bootstrap. Idempotent.
+# Run automatically by homeos-firstboot.service, or manually:
+#   sudo ansible-playbook -i localhost, -c local /opt/homeos/bootstrap/install.yml
+
+- name: HomeOS bootstrap
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+    - vars/stacks.yml
+  vars:
+    admin_user: admin
+    admin_home: "/home/admin"
+
+  pre_tasks:
+    - name: Wait for network
+      ansible.builtin.wait_for:
+        host: deb.debian.org
+        port: 443
+        timeout: 120
+
+    - name: Ensure bootstrap state dir
+      ansible.builtin.file:
+        path: /var/lib/homeos
+        state: directory
+        mode: '0755'
+
+    - name: Log bootstrap start
+      ansible.builtin.lineinfile:
+        path: /var/log/homeos-bootstrap.log
+        line: "==== bootstrap start {{ ansible_date_time.iso8601 }} ===="
+        create: true
+        mode: '0644'
+
+  roles:
+    - role: base
+    - role: ssh
+    - role: shell
+    - role: docker
+    - role: node
+    - role: brew
+    - role: gpu-intel
+    - role: ai-clis
+    - role: github-tools
+    - role: tailscale
+    - role: cockpit
+    - role: casaos
+    - role: caddy
+    - role: stacks
+    - role: nas
+    - role: backups
+    - role: homeos-cli
+    - role: firstboot
+
+  post_tasks:
+    - name: Mark bootstrap complete
+      ansible.builtin.file:
+        path: /var/lib/homeos/bootstrapped
+        state: touch
+        mode: '0644'
+
+    - name: Log bootstrap success
+      ansible.builtin.lineinfile:
+        path: /var/log/homeos-bootstrap.log
+        line: "==== bootstrap complete {{ ansible_date_time.iso8601 }} ===="

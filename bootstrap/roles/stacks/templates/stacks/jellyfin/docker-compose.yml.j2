@@ -1,0 +1,25 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: "1000:1000"
+    group_add:
+      - "44"   # video
+      - "104"  # render (Debian default; verify on host)
+    devices:
+      - /dev/dri:/dev/dri
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+      - "7359:7359/udp"
+      - "1900:1900/udp"
+    environment:
+      TZ: America/Sao_Paulo
+      JELLYFIN_PublishedServerUrl: http://homeos.local:8096
+    volumes:
+      - /srv/jellyfin/config:/config
+      - /srv/jellyfin/cache:/cache
+      - /srv/nas/media:/media:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"

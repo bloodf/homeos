@@ -1,0 +1,33 @@
+#compdef homeos
+
+_homeos() {
+  local -a commands config_subs
+  commands=(
+    'status:show services, disks, containers, GPU'
+    'doctor:run smoke tests'
+    'config:configuration commands'
+  )
+  config_subs=(
+    'rerun-bootstrap:re-run Ansible playbook'
+    'secrets:manage AI CLI credentials'
+    'nas:manage USB NAS drives'
+    'stack:manage docker compose stacks'
+    'net:tailscale + caddy'
+    'backup:restic backup config'
+  )
+
+  case $words[2] in
+    config)
+      case $words[3] in
+        secrets) _values 'op' list set get ;;
+        nas)     _values 'op' list add remove ;;
+        stack)   _values 'op' up down update logs ;;
+        net)     _values 'op' tailscale-up caddy-reload ;;
+        backup)  _values 'op' target run ;;
+        *)       _describe 'config sub' config_subs ;;
+      esac
+      ;;
+    *) _describe 'command' commands ;;
+  esac
+}
+_homeos "$@"

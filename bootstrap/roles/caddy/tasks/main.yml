@@ -1,0 +1,32 @@
+---
+- name: Caddy apt key
+  ansible.builtin.get_url:
+    url: "{{ caddy_apt_keyring }}"
+    dest: /etc/apt/keyrings/caddy.asc
+    mode: '0644'
+
+- name: Caddy apt repo
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/caddy.list
+    mode: '0644'
+    content: |
+      deb [signed-by=/etc/apt/keyrings/caddy.asc] {{ caddy_apt_repo }} any-version main
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    update_cache: true
+    name: caddy
+    state: present
+
+- name: Drop Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    mode: '0644'
+  notify: reload caddy
+
+- name: Enable Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started

@@ -1,0 +1,24 @@
+---
+- name: Harden sshd_config
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-homeos.conf
+    mode: '0644'
+    content: |
+      # HomeOS SSH hardening
+      PasswordAuthentication no
+      PermitRootLogin no
+      KbdInteractiveAuthentication no
+      UsePAM yes
+      MaxAuthTries 3
+      LoginGraceTime 20
+      X11Forwarding no
+      AllowAgentForwarding yes
+      ClientAliveInterval 60
+      ClientAliveCountMax 5
+  notify: restart sshd
+
+- name: Ensure sshd enabled
+  ansible.builtin.systemd:
+    name: ssh
+    enabled: true
+    state: started

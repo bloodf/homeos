@@ -1,0 +1,62 @@
+---
+- name: Install AI CLIs from npm
+  community.general.npm:
+    name: "{{ item }}"
+    global: true
+    state: present
+  loop: "{{ ai_clis_npm }}"
+
+- name: Install AI CLIs via brew taps
+  ansible.builtin.shell: |
+    set -e
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    brew tap {{ item.tap }} 2>/dev/null || true
+    brew install {{ item.tap }}/{{ item.formula }} || brew install {{ item.formula }}
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  loop: "{{ ai_clis_brew }}"
+  register: ai_brew
+  changed_when: "'Pouring' in (ai_brew.stdout | default('')) or 'Installing' in (ai_brew.stdout | default(''))"
+  failed_when: false
+
+- name: Install AI CLIs via curl|sh
+  ansible.builtin.shell: |
+    set -e
+    if ! command -v {{ item.name }} >/dev/null 2>&1; then
+      curl -fsSL {{ item.url }} | {{ item.shell }}
+    fi
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  loop: "{{ ai_clis_curl }}"
+  failed_when: false
+  register: ai_curl
+  changed_when: ai_curl.rc == 0
+
+- name: Install AI CLIs via pipx
+  community.general.pipx:
+    name: "{{ item }}"
+    state: present
+  become_user: "{{ admin_user }}"
+  loop: "{{ ai_clis_pipx }}"
+  failed_when: false   # kimi upstream package name uncertain; do not block bootstrap
+
+- name: Smoke-test installed AI CLIs
+  ansible.builtin.shell: |
+    for cli in claude codex gemini cursor-agent opencode kimi; do
+      if command -v "$cli" >/dev/null 2>&1; then
+        echo "OK $cli $($cli --version 2>&1 | head -1)"
+      else
+        echo "MISSING $cli"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  become_user: "{{ admin_user }}"
+  register: ai_smoke
+  changed_when: false
+
+- name: Report AI CLI smoke results
+  ansible.builtin.debug:
+    msg: "{{ ai_smoke.stdout_lines }}"

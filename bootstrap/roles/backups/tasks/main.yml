@@ -1,0 +1,59 @@
+---
+- name: Install restic + rclone
+  ansible.builtin.apt:
+    name:
+      - restic
+      - rclone
+    state: present
+
+- name: Backup config dir
+  ansible.builtin.file:
+    path: /etc/homeos
+    state: directory
+    mode: '0750'
+
+- name: Default backup config (target unset until user runs `homeos config backup target set`)
+  ansible.builtin.copy:
+    dest: /etc/homeos/backup.env
+    mode: '0600'
+    force: false
+    content: |
+      # HomeOS restic config. Edit via `homeos config backup target set <path>`.
+      RESTIC_REPOSITORY=
+      RESTIC_PASSWORD_FILE=/etc/homeos/restic.pass
+      BACKUP_PATHS="/srv /opt/stacks /home/admin"
+
+- name: Random restic password file (only once)
+  ansible.builtin.shell: |
+    set -e
+    if [ ! -s /etc/homeos/restic.pass ]; then
+      umask 077
+      head -c 48 /dev/urandom | base64 | tr -d '\n' > /etc/homeos/restic.pass
+    fi
+  args:
+    executable: /bin/bash
+    creates: /etc/homeos/restic.pass
+
+- name: Backup script
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/homeos-backup
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      [ -f /etc/homeos/backup.env ] || { echo "no backup.env"; exit 0; }
+      # shellcheck disable=SC1091
+      source /etc/homeos/backup.env
+      [ -n "${RESTIC_REPOSITORY:-}" ] || { echo "RESTIC_REPOSITORY unset; skipping"; exit 0; }
+      export RESTIC_REPOSITORY RESTIC_PASSWORD_FILE
+      restic snapshots >/dev/null 2>&1 || restic init
+      # shellcheck disable=SC2086
+      restic backup --exclude-caches $BACKUP_PATHS
+      restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+
+- name: Daily backup cron
+  ansible.builtin.cron:
+    name: homeos-backup
+    minute: "30"
+    hour: "2"
+    job: "/usr/local/sbin/homeos-backup >> /var/log/homeos-backup.log 2>&1"

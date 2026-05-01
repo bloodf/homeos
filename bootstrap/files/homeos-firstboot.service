@@ -1,0 +1,21 @@
+[Unit]
+Description=HomeOS first-boot bootstrap (Ansible)
+After=network-online.target multi-user.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/homeos/bootstrapped
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+StandardOutput=append:/var/log/homeos-bootstrap.log
+StandardError=append:/var/log/homeos-bootstrap.log
+Environment=ANSIBLE_LOCALHOST_WARNING=False
+Environment=ANSIBLE_INVENTORY_UNPARSED_WARNING=False
+ExecStartPre=/bin/mkdir -p /var/lib/homeos
+ExecStartPre=/usr/bin/ansible-galaxy collection install -r /opt/homeos/bootstrap/requirements.yml
+ExecStart=/usr/bin/ansible-playbook -i localhost, -c local /opt/homeos/bootstrap/install.yml
+ExecStartPost=/bin/sh -c 'systemctl disable homeos-firstboot.service'
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

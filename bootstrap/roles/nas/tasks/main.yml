@@ -1,0 +1,82 @@
+---
+- name: Load nas_disks vars (may be empty on first run)
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/vars/nas_disks.yml"
+
+- name: Install Samba + NFS
+  ansible.builtin.apt:
+    name:
+      - samba
+      - samba-common-bin
+      - nfs-kernel-server
+      - exfatprogs
+      - ntfs-3g
+    state: present
+
+- name: Base NAS dir
+  ansible.builtin.file:
+    path: /srv/nas
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0755'
+
+- name: Per-drive mount points
+  ansible.builtin.file:
+    path: "/srv/nas/{{ item.label }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0775'
+  loop: "{{ nas_disks }}"
+  when: nas_disks | length > 0
+
+- name: Render NAS udev rules
+  ansible.builtin.template:
+    src: 99-homeos-nas.rules.j2
+    dest: /etc/udev/rules.d/99-homeos-nas.rules
+    mode: '0644'
+  notify: reload udev
+
+- name: Render systemd mount units
+  ansible.builtin.template:
+    src: nas-mount.j2
+    dest: "/etc/systemd/system/srv-nas-{{ item.label }}.mount"
+    mode: '0644'
+  loop: "{{ nas_disks }}"
+  when: nas_disks | length > 0
+  notify: reload systemd
+
+- name: Enable mount units
+  ansible.builtin.systemd:
+    name: "srv-nas-{{ item.label }}.mount"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ nas_disks }}"
+  when: nas_disks | length > 0
+  failed_when: false
+
+- name: Render smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    mode: '0644'
+  notify: restart smbd
+
+- name: Render exports
+  ansible.builtin.template:
+    src: exports.j2
+    dest: /etc/exports
+    mode: '0644'
+  notify: reload nfs
+
+- name: Enable Samba + NFS
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - smbd
+    - nmbd
+    - nfs-kernel-server
