@@ -22,3 +22,5 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=sk-ant-test-6ce8ea376e8a05d095ad1e
 2026-05-01T20:25:00Z — rebuilt smoke ISO after temp-user preseed fix sha256=33b607de0cf23dd1e9936fdce5b4a528571a8226d9ea8e4a7738ac9f470efd06
 2026-05-01T20:29:00Z — LIGHT QEMU smoke PASS commit=b4324d2 iso=33b607de0cf23dd1e9936fdce5b4a528571a8226d9ea8e4a7738ac9f470efd06; pass scope per user: ISO boots and unattended d-i reaches install path (base/apt component stage), not full bootstrap/services.
 2026-05-01T20:30:05Z — RELEASE v0.4.0 sha=9c17903 iso=33b607de0cf23dd1e9936fdce5b4a528571a8226d9ea8e4a7738ac9f470efd06; GitHub release published; QEMU scope light per user instruction.
+2026-05-01T21:50:00Z — created ROADMAP-TO-0.9.md and SUBAGENT-PROMPTS-TO-0.9.md planning artifacts for v0.5-v0.9 parallel agent work; no product implementation.
+2026-05-01T21:52:58Z — review fixes applied to planning artifacts: ROADMAP/SUBAGENT prompts now explicitly supersede HANDOFF QEMU/full-smoke for v0.5-v0.9 workers, add parallel-edit coordination, avoid prompt marker noise, and clarify orchestrator-controlled ISO/QEMU validation.
