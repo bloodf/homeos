@@ -351,20 +351,20 @@ Env switches:
 
 ---
 
-## 10. What's next — see `HANDOFF.md`
+## 10. What's next — see `ROADMAP-TO-0.9.md`
 
-Open scope:
+Current release path:
 
-- Verify all carryover task items closed (#6–#12 in prior task list).
-- Ship `v0.4.0` — Cosmos bypass-warn audit reader.
-- Ship `v0.5.0` — Cosmos Docker socket shim with intercept audit.
-- Ship `v0.6.0` — `homeos audit replay <id>` + sidecar replay payload.
-- QEMU smoke before every tag + post-release smoke against CI ISO.
-- Zero `TODO|FIXME|XXX` strings in `bootstrap/`, `docs/`, `Makefile`,
-  `build/`, `preseed/` at v0.6 done line.
+- `v0.4.0` shipped the initial Cosmos bypass-warn audit reader.
+- `v0.5.0` ships the proactive Cosmos Docker socket shim release.
+- `v0.6.0` adds `homeos audit replay <id>` and sidecar replay payloads.
+- `v0.7.0` is the bootstrap-fixes milestone.
+- `v0.8.0` hardens security, supply-chain, docs, and CI.
+- `v0.9.0` is release-candidate polish.
+- `v1.0.0` is reserved for final full ISO/QEMU validation.
 
-Full handoff prompt with QEMU protocol, release ritual, and
-agent-agnostic operating principles lives in `HANDOFF.md`.
+`ROADMAP-TO-0.9.md` is authoritative for v0.5-v0.9 scope and supersedes
+older `HANDOFF.md` QEMU-per-tag guidance for those milestones.
 
 ---
 
@@ -391,8 +391,11 @@ agent-agnostic operating principles lives in `HANDOFF.md`.
 - **Gate** — AI Review Gate; warn-only review of mutating commands.
 - **BYPASS** — gate skipped via `HOMEOS_NO_REVIEW=1`; still
   audit-logged.
-- **Bypass-warn** — Cosmos UI mutates Docker directly; we audit
-  post-hoc rather than block (v0.4); intercept arrives in v0.5 shim.
+- **Bypass-warn** — v0.4 mode where Cosmos UI mutates Docker directly
+  and HomeOS audited post-hoc rather than blocking.
+- **Cosmos Docker socket shim** — v0.5 mode where Cosmos mounts
+  `/var/run/cosmos-docker.sock`; the shim audits mutating Docker API
+  calls before forwarding them to the real Docker socket.
 - **Audit** — append-only JSONL of every mutating intent + verdict +
   choice + diff_hash.
 - **Installer** — opt-in feature add-on under

@@ -11,8 +11,8 @@
 2026-05-01T18:05:28Z — plan updated: [x] verify carryover #6-#12; [x] implement v0.4 Cosmos bypass audit reader + CLI; [x] update docs; [x] run static checks (bash -n, yaml parse, CLI temp audit test, Cosmos audit fake-docker test; ansible syntax skipped: ansible-playbook not installed); [ ] commit v0.4 implementation; [ ] build/smoke/tag if environment permits.
 2026-05-01T18:06:08Z — commit d109170 feat(cosmos): mirror UI actions to audit log; v0.4 implementation static checks passed except ansible syntax unavailable locally.
 2026-05-01T18:06:08Z — plan updated: [x] verify carryover #6-#12; [x] implement v0.4 Cosmos bypass audit reader + CLI; [x] update docs; [x] run static checks; [x] commit v0.4 implementation; [ ] build/smoke/tag if environment permits.
-TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=sk-ant-test-6ce8ea376e8a05d095ad1e7a80702e21
-01d70b71dfb3fe5684103cb625a203969a4920ddb58867dea3cfe3c99345d024  dist/homeos-debian-13.4-amd64.iso
+TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=<redacted fake test key>
+01d70b71dfb3fe5684103cb625a203969a4920ddb58867dea3cfe3c99345d024 dist/homeos-debian-13.4-amd64.iso
 2026-05-01T18:38:50Z — QEMU smoke attempt failed before boot: /opt/homebrew/bin/qemu-system-x86_64 reports invalid accelerator hvf; retrying without acceleration.
 2026-05-01T19:41:02Z — QEMU smoke failed in Debian installer before SSH: username admin is reserved by d-i user-setup; fixed preseed to skip d-i user creation and create admin in late_command.
 2026-05-01T19:45:00Z — rebuilt smoke ISO after preseed admin-user fix sha256=f301a7cd74726760b2388f6e6503ca1f0ba88404ad2ac832dabb4f5915822048
@@ -25,3 +25,4 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=sk-ant-test-6ce8ea376e8a05d095ad1e
 2026-05-01T21:50:00Z — created ROADMAP-TO-0.9.md and SUBAGENT-PROMPTS-TO-0.9.md planning artifacts for v0.5-v0.9 parallel agent work; no product implementation.
 2026-05-01T21:52:58Z — review fixes applied to planning artifacts: ROADMAP/SUBAGENT prompts now explicitly supersede HANDOFF QEMU/full-smoke for v0.5-v0.9 workers, add parallel-edit coordination, avoid prompt marker noise, and clarify orchestrator-controlled ISO/QEMU validation.
 2026-05-01T22:01:02Z — created FRESH-ORCHESTRATOR-HANDOFF.md and V1-QEMU-TESTING-PROMPT.md prompt files for fresh orchestrator and visible v1.0 QEMU testing.
+2026-05-01T22:26:50Z — v0.5.0 finalization validated in worktree chore/v0.5-finalize: bash -n homeos/completion passed; shim compile and local Unix-socket harness passed; YAML parse passed; ansible syntax skipped (ansible-playbook unavailable); QEMU not run per ROADMAP-TO-0.9 policy.

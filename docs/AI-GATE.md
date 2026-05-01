@@ -84,22 +84,24 @@ Cosmos has its own web UI and talks to Docker directly. In v0.5.x HomeOS mounts
 `/var/run/cosmos-docker.sock` into the Cosmos container as `/var/run/docker.sock`.
 `homeos-cosmos-docker-shim.service` listens on that socket, forwards requests to
 the real `/var/run/docker.sock`, and writes an audit entry for mutating Docker
-API methods (`POST`, `PUT`, `PATCH`, `DELETE`). The shim is informational: it
-records `BYPASS` and does not block Cosmos UI actions.
+API methods (`POST`, `PUT`, `DELETE`) against Docker containers, images,
+networks, and volumes. The shim is informational: it records `BYPASS` and does
+not block Cosmos UI actions.
 
 Shim entries use:
 
-- `cmd`: `cosmos:docker:<METHOD>` (for example `cosmos:docker:POST`)
+- `cmd`: `cosmos:<verb>:<resource>` (for example `cosmos:post:containers`)
 - `user`: `cosmos`
 - `verdict`: `BYPASS`
 - `choice`: `observed`
 - `source`: `cosmos-docker-shim`
-- `summary`: `<METHOD> <path>`
+- `summary`: `<METHOD> <path>` plus body hash/size/truncation metadata
 
-Request bodies are never written to the public audit log; only a short hash is
-kept for correlation. Read-only methods such as `GET /containers/json` are
-proxied without audit entries. The Cosmos compose stack is launched through
-`homeos-cosmos.service`, ordered after `homeos-cosmos-docker-shim.service`, so
+Request bodies are never written to the public audit log; only SHA-256 hash,
+size, and truncation metadata are kept for correlation. Read-only methods such as
+`GET /containers/json` are proxied without audit entries. The Cosmos compose
+stack is launched through `homeos-cosmos.service`, ordered after
+`homeos-cosmos-docker-shim.service`, so
 normal boot and CLI toggles start the shim before the container bind-mounts it.
 
 Inspect Cosmos-origin events with:

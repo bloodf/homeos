@@ -7,3 +7,7 @@ secrets/*.env
 .DS_Store
 build/cache/
 .worktrees/
+.claude/
+.omc/
+.pi/
+.pi-lens/

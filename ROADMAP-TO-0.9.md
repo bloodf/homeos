@@ -25,25 +25,25 @@ Goal: finalize and release the already-started Cosmos Docker socket shim work. C
 
 ### Implementation and correctness
 
-- [ ] Confirm `bootstrap/roles/cosmos/files/homeos-cosmos-docker-shim` exists, is executable, and has `set -euo pipefail`.
-- [ ] Confirm the old v0.4 Cosmos log-tail audit service is removed or disabled cleanly, with no stale references to the removed script.
-- [ ] Confirm shim forwards Docker API traffic to `/var/run/docker.sock` and listens on `/var/run/cosmos-docker.sock`.
-- [ ] Confirm shim audits mutating Docker methods/paths before forwarding: `POST`, `PUT`, `DELETE` for containers, images, networks, volumes.
-- [ ] Confirm audit entries use `cmd: "cosmos:<verb>:<resource>"`, `verdict: "BYPASS"`, and include a body/hash summary without leaking large raw payloads.
-- [ ] Confirm non-mutating calls like `GET /containers/json` pass through unchanged and are not noisy in the audit log.
-- [ ] Confirm `homeos-cosmos-shim.service` starts before/with Cosmos when Cosmos is enabled and stops when Cosmos is disabled.
-- [ ] Confirm Cosmos compose mounts `/var/run/cosmos-docker.sock:/var/run/docker.sock` and not the host Docker socket directly.
-- [ ] Confirm `homeos config cosmos on/off/status` manages or reports the shim service state coherently.
-- [ ] Confirm `homeos status` includes shim uptime/health or a clear shim status line.
+- [x] Confirm `bootstrap/roles/cosmos/files/homeos-cosmos-docker-shim` exists, is executable, and has `set -euo pipefail` equivalent for its implementation — evidence: executable Python shim, `python3 -m py_compile` passed, 2026-05-01.
+- [x] Confirm the old v0.4 Cosmos log-tail audit service is removed or disabled cleanly, with no stale references to the removed script — evidence: Ansible and CLI disable `homeos-cosmos-audit.service`; no legacy script references found, 2026-05-01.
+- [x] Confirm shim forwards Docker API traffic to `/var/run/docker.sock` and listens on `/var/run/cosmos-docker.sock` — evidence: shim constants and local Unix-socket harness passed, 2026-05-01.
+- [x] Confirm shim audits mutating Docker methods/paths before forwarding: `POST`, `PUT`, `DELETE` for containers, images, networks, volumes — evidence: resource/method filter in shim plus `POST /containers/...` harness, 2026-05-01.
+- [x] Confirm audit entries use `cmd: "cosmos:<verb>:<resource>"`, `verdict: "BYPASS"`, and include a body/hash summary without leaking large raw payloads — evidence: shim emits `cosmos:post:containers` with body hash/size/truncation metadata; harness verified raw body redaction, 2026-05-01.
+- [x] Confirm non-mutating calls like `GET /containers/json` pass through unchanged and are not noisy in the audit log — evidence: local Unix-socket harness verified GET proxy with no audit line, 2026-05-01.
+- [x] Confirm `homeos-cosmos-docker-shim.service` starts before/with Cosmos when Cosmos is enabled and stops when Cosmos is disabled — evidence: Ansible unit ordering and CLI on/off systemctl flow reviewed, 2026-05-01.
+- [x] Confirm Cosmos compose mounts `/var/run/cosmos-docker.sock:/var/run/docker.sock` and not the host Docker socket directly — evidence: `cosmos-compose.yml.j2` volume review, 2026-05-01.
+- [x] Confirm `homeos config cosmos on/off/status` manages or reports the shim service state coherently — evidence: CLI starts/stops shim with stack and status prints both units, 2026-05-01.
+- [x] Confirm `homeos status` includes shim uptime/health or a clear shim status line — evidence: `cmd_status` prints state/substate/active-since for `homeos-cosmos-docker-shim.service`, 2026-05-01.
 
 ### Documentation and release
 
-- [ ] Update `docs/AI-GATE.md` from v0.4 bypass-warn log tailing to v0.5 proactive socket shim semantics.
-- [ ] Update `docs/DAY2.md` with `homeos audit cosmos-events` and shim status expectations.
-- [ ] Update README feature summary for Cosmos Docker socket shim audit visibility.
-- [ ] Create or finalize `release-notes/v0.5.0.md` with user-facing summary and validation notes.
-- [ ] Ensure no stale references claim v0.5 is future work once release finalization is complete.
-- [ ] Static validation passes: shell syntax, YAML parsing, targeted shim harness if available.
+- [x] Update `docs/AI-GATE.md` from v0.4 bypass-warn log tailing to v0.5 proactive socket shim semantics — evidence: socket shim command/body semantics documented, 2026-05-01.
+- [x] Update `docs/DAY2.md` with `homeos audit cosmos-events` and shim status expectations — evidence: CLI status and cosmos-events text reviewed/updated, 2026-05-01.
+- [x] Update README feature summary for Cosmos Docker socket shim audit visibility — evidence: README mentions shim socket and `cosmos:<verb>:<resource>` / `BYPASS` audit entries, 2026-05-01.
+- [x] Create or finalize `release-notes/v0.5.0.md` with user-facing summary and validation notes — evidence: release notes updated for command format, body redaction, static/harness validation, 2026-05-01.
+- [x] Ensure no stale references claim v0.5 is future work once release finalization is complete — evidence: current docs plus legacy `PROJECT-INFO.md`/`HANDOFF.md` updated to describe v0.5 shim as present release scope and point v0.5-v0.9 policy to this roadmap, 2026-05-01.
+- [x] Static validation passes: shell syntax, YAML parsing, targeted shim harness if available — evidence: `bash -n`, PyYAML parse, `python3 -m py_compile`, and local Unix-socket harness passed, 2026-05-01.
 - [ ] Orchestrator: commit, tag `v0.5.0`, push, publish release, and watch CI. No worker does this.
 
 ## v0.6.0 — Audit replay and sidecar payloads

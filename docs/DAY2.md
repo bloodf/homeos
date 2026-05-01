@@ -186,7 +186,8 @@ First visit triggers setup wizard. Create admin account immediately.
 Cosmos UI container mutations bypass the interactive AI gate, but v0.5 routes
 Cosmos through `/var/run/cosmos-docker.sock`. The
 `homeos-cosmos-docker-shim.service` proxy forwards to the real Docker socket and
-audit-logs mutating Docker API methods with verdict `BYPASS`:
+audit-logs mutating container/image/network/volume Docker API methods with
+`cmd=cosmos:<verb>:<resource>` and verdict `BYPASS`:
 
 ```bash
 homeos audit cosmos-events

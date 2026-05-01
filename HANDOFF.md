@@ -1,17 +1,19 @@
-# HomeOS — Complete Handoff Prompt (v0.3 → v0.6)
+# HomeOS — Historical Handoff Prompt (v0.3 → v0.6)
 
-> Self-contained brief. Inheriting agent gets every fact, decision, file
-> map, runtime contract, and acceptance criterion needed to drive HomeOS
-> from `v0.3.0` to a working `v0.6.0` ISO without back-channel context.
+> Historical brief retained for background. `ROADMAP-TO-0.9.md` supersedes
+> this file for v0.5-v0.9 execution policy, release scope, and validation
+> gates. In particular, QEMU/full ISO validation is deferred to v1.0
+> orchestrator-only.
 
 ---
 
-## 0. Mission
+## 0. Historical mission
 
-Ship `v0.4.0`, `v0.5.0`, `v0.6.0` per the roadmap. Close every TODO / FIXME
-/ XXX. Prove the ISO works end-to-end inside QEMU before each tag. Stop
-only when `v0.6.0` is tagged on GitHub, the release is live, the CI ISO
-build is green, and a fresh QEMU smoke against the released ISO passes.
+This file originally drove the v0.3→v0.6 path. Current agents should use
+`ROADMAP-TO-0.9.md` instead: v0.4.0 has shipped, v0.5.0 is the Cosmos
+Docker socket shim release, v0.6.0 is audit replay, v0.7.0 is bootstrap
+fixes, v0.8.0 is hardening, v0.9.0 is release-candidate polish, and
+v1.0.0 owns final full ISO/QEMU validation.
 
 ---
 
@@ -227,7 +229,9 @@ to you.
      yaml; yaml.safe_load(open("<file>"))'`
    - ansible: `ansible-playbook --syntax-check bootstrap/install.yml`
      when reachable
-   Per release: full QEMU smoke (§10).
+   - release gate: use `ROADMAP-TO-0.9.md` for current v0.5-v0.9
+     static/targeted validation; reserve full QEMU smoke for v1.0
+     orchestrator-only validation.
 7. **No destructive ops without confirmation:**
    - `git push --force` (refused on `main`)
    - `git reset --hard` to upstream
@@ -317,28 +321,23 @@ within 5s. CI green. QEMU smoke passes.
 
 ### `v0.5.0` — Cosmos Docker socket shim
 
-Replace bypass-warn with proactive intercept.
+Historical plan superseded by `ROADMAP-TO-0.9.md`: v0.5 replaces
+bypass-warn with a proactive Python Docker socket shim.
 
-- Build a tiny Go (preferred) or Bash socket proxy at
-  `/var/run/cosmos-docker.sock`. Forwards to real
-  `/var/run/docker.sock`. For every mutating verb (`POST`, `DELETE`,
-  `PUT` against `/containers/...`, `/images/...`, `/networks/...`,
-  `/volumes/...`):
-  1. Capture method + path + body.
-  2. Write JSONL audit entry with `cmd: "cosmos:<verb>:<resource>"`,
-     verdict `BYPASS` (gate is informational here — blocking would
-     break Cosmos UX), include diff_hash of body.
-  3. Forward to real socket.
-  4. Return upstream response unchanged.
-- Cosmos compose mounts the shim, not the real socket.
-- Service: `homeos-cosmos-shim.service`, `Type=notify`, runs as
-  root (needs docker socket). Health: `homeos status` includes shim
-  uptime.
-- Code lives at `bootstrap/roles/cosmos/files/cosmos-docker-shim.{go,sh}`.
+Implemented release shape:
 
-Acceptance: `docker ps` from Cosmos UI works. Stopping a container
-emits audit. Shim restart loses no events (best-effort, log gap to
-audit). QEMU smoke passes.
+- Shim path: `bootstrap/roles/cosmos/files/homeos-cosmos-docker-shim`.
+- Service: `homeos-cosmos-docker-shim.service`.
+- Listen socket: `/var/run/cosmos-docker.sock`.
+- Upstream socket: `/var/run/docker.sock`.
+- Cosmos compose mounts `/var/run/cosmos-docker.sock:/var/run/docker.sock`.
+- Mutating Docker API calls for containers/images/networks/volumes emit
+  `cmd: "cosmos:<verb>:<resource>"`, `verdict: "BYPASS"`, and body
+  hash/size/truncation metadata before forwarding.
+- `homeos status` and `homeos config cosmos status` report shim state.
+
+For v0.5-v0.9, do not use this historical handoff's QEMU-per-tag text;
+QEMU/full ISO validation is deferred to v1.0 orchestrator-only.
 
 ### `v0.6.0` — `homeos audit replay <id>`
 
@@ -368,12 +367,11 @@ roadmap milestones in scope.
 
 ---
 
-## 10. QEMU full smoke-test protocol
+## 10. Historical QEMU full smoke-test protocol
 
-Run before every tag push (`v0.4.0`, `v0.5.0`, `v0.6.0`) **and** once
-post-release against the CI-built ISO. Random keys + configs are fine —
-this verifies "boot, SSH, bootstrap finishes, services healthy, gate
-audits, installer dispatches".
+The protocol below is retained for background and for the later v1.0
+orchestrator-only validation. For v0.5-v0.9, use the static/targeted
+validation gates in `ROADMAP-TO-0.9.md` instead of this QEMU-per-tag text.
 
 ### 10.1 Inputs (random, throw-away)
 
@@ -530,45 +528,13 @@ git checkout -- secrets/authorized_keys 2>/dev/null \
 
 ---
 
-## 11. Release ritual (per tag)
+## 11. Historical release ritual (superseded)
 
-```bash
-# 11.1 pre-flight
-git status -s                                       # must be clean
-bash -n bootstrap/roles/homeos-cli/files/homeos
-ansible-playbook --syntax-check bootstrap/install.yml || true
-
-# 11.2 build + smoke (§10)
-
-# 11.3 release notes file (source of truth, in git)
-$EDITOR release-notes/vX.Y.Z.md
-git add release-notes/vX.Y.Z.md
-git commit -m "docs: vX.Y.Z release notes"
-
-# 11.4 tag
-git tag -a vX.Y.Z -m "vX.Y.Z — <one-line summary>
-
-<copy of release-notes/vX.Y.Z.md body, plain text>"
-
-# 11.5 push
-git push origin main
-git push origin vX.Y.Z
-
-# 11.6 GitHub release (CI workflow build-iso.yml triggers on the tag
-# and attaches ISOs once the build finishes — usually 15–30 min)
-gh release create vX.Y.Z \
-  --title "vX.Y.Z — <summary>" \
-  --notes-file release-notes/vX.Y.Z.md
-
-# 11.7 watch CI
-gh run list --workflow=build-iso.yml --limit 3
-gh run watch <run-id>
-
-# 11.8 post-release smoke
-# Download the CI-built ISO, run §10 against it. Log result.
-gh release download vX.Y.Z -p '*amd64.iso'
-# (then run QEMU smoke from §10.3 onward against this ISO)
-```
+This historical per-tag ritual is superseded by `ROADMAP-TO-0.9.md` and
+`FRESH-ORCHESTRATOR-HANDOFF.md`. For v0.5-v0.9, the orchestrator owns
+commit, tag, push, GitHub release, and CI watching after static/targeted
+validation. Do not run the §10 QEMU protocol for those milestones; reserve
+it for v1.0 final validation.
 
 ---
 
@@ -652,7 +618,7 @@ homeos install <feature> [--reconfigure]
 | ISO boots but SSH refuses key | `secrets/authorized_keys` empty during build | rebuild with key, or use default password `homeos` (forced change on first login) |
 | Bootstrap log shows `iHD` driver missing | non-Intel host or QEMU TCG | acceptable in QEMU; `gpu-intel` role logs warn |
 | `homeos audit tail` empty after gated command | gate provider was `none` and `HOMEOS_NO_REVIEW=1` | check provider with `homeos config gate show` |
-| Cosmos cannot reach Docker (v0.5+) | shim service not started | `systemctl status homeos-cosmos-shim` |
+| Cosmos cannot reach Docker (v0.5+) | shim service not started | `systemctl status homeos-cosmos-docker-shim` |
 | CI build-iso fails on cache restore | upstream netinst sha changed | rerun `make base-iso` locally, commit new SHA in `bootstrap/vars/main.yml` |
 | QEMU stuck at "Performing post-installation tasks" | `late_command` hung on second disk | check `/dev/sdb` exists in QEMU args |
 
@@ -664,7 +630,7 @@ homeos install <feature> [--reconfigure]
 - Add `push:` or `pull_request:` triggers to GitHub workflows.
 - Force-push to `main` or any release tag.
 - Delete or move existing tags.
-- Skip the QEMU smoke before tagging.
+- Skip the required validation gate for the release scope. For v0.5-v0.9 this means static/targeted validation from `ROADMAP-TO-0.9.md`; full QEMU smoke is v1.0 orchestrator-only.
 - Use Cloudflare R2 for any storage decision (locked: Railway only
   if cloud storage ever needed).
 - Use `.local` mDNS domains for local dev — use `localhost` + port.
@@ -677,15 +643,6 @@ homeos install <feature> [--reconfigure]
 ## 16. Start here
 
 1. Create or append to `HANDOFF-LOG.md`:
-   `<ISO timestamp> — handoff received, HEAD=<git rev-parse --short HEAD>`
-2. Run §8 verification: read source for each carryover item, log
-   status.
-3. Pick the lowest-numbered open milestone (`v0.4.0`).
-4. Implement → commit atomically → run §10 QEMU smoke → §11 release
-   ritual → §10 post-release CI-ISO smoke.
-5. Repeat for `v0.5.0`, `v0.6.0`.
-6. When §12 is fully satisfied, write the final `HANDOFF COMPLETE`
-   line and stop.
-
-Don't stop until v0.6 is on GitHub and a freshly built ISO boots
-clean in QEMU.
+   `<ISO timestamp> — handoff received, HEAD=<git rev-parse --short HEAD>`.
+2. Then follow `ROADMAP-TO-0.9.md` and `FRESH-ORCHESTRATOR-HANDOFF.md` for
+   current v0.5-v0.9 execution, validation, and release ownership.

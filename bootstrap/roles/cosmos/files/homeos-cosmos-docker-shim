@@ -31,7 +31,8 @@ AUDIT_LOG = Path(os.environ.get("HOMEOS_AUDIT_LOG", "/var/log/homeos-audit.jsonl
 HEADER_LIMIT = int(os.environ.get("HOMEOS_COSMOS_SHIM_HEADER_LIMIT", str(128 * 1024)))
 BODY_HASH_LIMIT = int(os.environ.get("HOMEOS_COSMOS_SHIM_BODY_HASH_LIMIT", str(1024 * 1024)))
 REQUEST_TIMEOUT = float(os.environ.get("HOMEOS_COSMOS_SHIM_REQUEST_TIMEOUT", "5"))
-MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+MUTATING_METHODS = {"POST", "PUT", "DELETE"}
+DOCKER_AUDIT_RESOURCES = {"containers", "images", "networks", "volumes"}
 STREAMING_PATH_MARKERS = (
     "/attach",
     "/events",
@@ -238,24 +239,69 @@ def read_response(upstream: socket.socket, request_method: Optional[str]) -> Tup
     return data, True, headers
 
 
-def body_digest(body: bytes) -> str:
-    return hashlib.sha256(body[:BODY_HASH_LIMIT]).hexdigest()
+def docker_resource(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+
+    parsed = urlsplit(path)
+    parts = [part for part in parsed.path.split("/") if part]
+    if parts and parts[0].startswith("v") and len(parts) > 1:
+        version = parts[0][1:]
+        if version and all(ch.isdigit() or ch == "." for ch in version):
+            parts = parts[1:]
+    if parts and parts[0] in DOCKER_AUDIT_RESOURCES:
+        return parts[0]
+    return None
 
 
-def audit_request(method: Optional[str], path: Optional[str], body: bytes) -> None:
-    if method not in MUTATING_METHODS or not path:
+def body_audit_summary(
+    headers: dict[str, str], body: bytes, body_complete: bool
+) -> dict[str, object]:
+    declared_length = content_length(headers)
+    captured = body[:BODY_HASH_LIMIT]
+    truncated = (not body_complete) or len(body) > BODY_HASH_LIMIT
+    if declared_length is not None:
+        truncated = truncated or declared_length > len(captured)
+
+    return {
+        "sha256": hashlib.sha256(captured).hexdigest(),
+        "bytes": declared_length
+        if declared_length is not None
+        else (len(body) if body_complete else None),
+        "captured_bytes": len(captured),
+        "truncated": truncated,
+    }
+
+
+def audit_request(
+    method: Optional[str],
+    path: Optional[str],
+    headers: dict[str, str],
+    body: bytes,
+    body_complete: bool,
+) -> None:
+    resource = docker_resource(path)
+    if method not in MUTATING_METHODS or not path or not resource:
         return
 
-    hash_input = f"{method}\n{path}\n{body_digest(body)}".encode("utf-8", errors="replace")
+    body_summary = body_audit_summary(headers, body, body_complete)
+    body_hash = str(body_summary["sha256"])
+    hash_input = f"{method}\n{resource}\n{path}\n{body_hash}".encode("utf-8", errors="replace")
+    byte_count = body_summary["bytes"] if body_summary["bytes"] is not None else "unknown"
     entry = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "cmd": f"cosmos:docker:{method}",
+        "cmd": f"cosmos:{method.lower()}:{resource}",
         "user": "cosmos",
         "verdict": "BYPASS",
         "choice": "observed",
         "diff_hash": short_hash(hash_input),
         "source": "cosmos-docker-shim",
-        "summary": f"{method} {path}",
+        "summary": (
+            f"{method} {path} body_sha256={body_hash[:12]} "
+            f"body_bytes={byte_count} "
+            f"body_truncated={str(body_summary['truncated']).lower()}"
+        ),
+        "body": body_summary,
     }
 
     try:
@@ -359,7 +405,7 @@ def handle_client(client: socket.socket) -> None:
             if not raw_request:
                 return
 
-            audit_request(method, path, body)
+            audit_request(method, path, headers, body, not raw_relay_request)
             upstream.sendall(raw_request)
 
             if raw_relay_request:

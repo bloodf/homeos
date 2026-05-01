@@ -177,12 +177,13 @@ real `/var/run/docker.sock` into Cosmos directly. The `cosmos` role installs
 compose file mounts the shim socket as `/var/run/docker.sock`.
 
 The shim parses repeated non-streaming HTTP request/response pairs on each
-Unix-socket connection. Mutating Docker API methods (`POST`, `PUT`, `PATCH`,
-`DELETE`) write a redacted audit entry (`cmd=cosmos:docker:<METHOD>`,
-`verdict=BYPASS`); request bodies are not logged. Large uploads, streaming
-endpoints, unbounded responses, and Docker hijack/upgrade requests are audited
-from the already-buffered bytes and then relayed raw in both directions so those
-Docker APIs keep working without buffering the full stream.
+Unix-socket connection. Mutating Docker API methods (`POST`, `PUT`, `DELETE`)
+against containers, images, networks, and volumes write a redacted audit entry
+(`cmd=cosmos:<verb>:<resource>`, `verdict=BYPASS`); request bodies are not
+logged. Large uploads, streaming endpoints, unbounded responses, and Docker
+hijack/upgrade requests are audited from the already-buffered bytes and then
+relayed raw in both directions so those Docker APIs keep working without
+buffering the full stream.
 
 ## Networking model
 

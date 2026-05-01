@@ -89,7 +89,10 @@ homeos config cosmos on|off|status
 homeos audit tail|search|cosmos-events
 ```
 
-Cosmos runs through `/var/run/cosmos-docker.sock`, a HomeOS Docker API shim that forwards to Docker and records mutating UI actions as `BYPASS` audit entries without logging request bodies.
+Cosmos runs through `/var/run/cosmos-docker.sock`, a HomeOS Docker API shim
+that forwards to Docker and records mutating UI actions as
+`cosmos:<verb>:<resource>` / `BYPASS` audit entries without logging request
+bodies.
 
 ## Repository layout
 

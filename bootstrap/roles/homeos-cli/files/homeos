@@ -453,7 +453,11 @@ with open(path, encoding="utf-8") as fh:
             entry = json.loads(line)
         except Exception:
             continue
-        if str(entry.get("cmd", "")).startswith("cosmos:"):
+        if entry.get("source") == "cosmos-docker-shim" or (
+            str(entry.get("cmd", "")).startswith("cosmos:")
+            and entry.get("user") == "cosmos"
+            and entry.get("verdict") == "BYPASS"
+        ):
             entries.append(entry)
 for e in entries[-count:]:
     print(f"{e.get('ts','')}  {e.get('cmd',''):<28}  verdict={e.get('verdict','')}  hash={e.get('diff_hash','')}  {e.get('summary','')}")
