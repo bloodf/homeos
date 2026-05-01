@@ -121,6 +121,7 @@ homeos — HomeOS day-2 ops
   homeos install --list
   homeos audit tail [-n N]                   tail audit log
   homeos audit search <pattern>
+  homeos audit cosmos-events [-n N]          tail Cosmos-origin bypass events
 EOF
 }
 
@@ -359,12 +360,14 @@ cmd_cosmos() {
   local sub="${1:-status}"
   local flag="/var/lib/homeos/cosmos.enabled"
   local dir="/opt/stacks/cosmos"
+  local audit_unit="homeos-cosmos-audit.service"
   case "$sub" in
     on)
       need_root
       [ -d "$dir" ] || err "cosmos stack not installed at $dir — run rerun-bootstrap"
       gate "cosmos:on" "enable cosmos flag + docker compose up at $dir" \
         sh -c "mkdir -p '$(dirname "$flag")' && touch '$flag' && cd '$dir' && docker compose up -d"
+      systemctl enable --now "$audit_unit" 2>/dev/null || warn "$audit_unit not installed yet — run rerun-bootstrap to enable Cosmos audit mirroring"
       bold "cosmos up. URL:"
       echo "  https://cosmos.<tailnet>.ts.net"
       echo "  first-run setup runs in browser; create admin account immediately."
@@ -373,12 +376,14 @@ cmd_cosmos() {
       need_root
       gate "cosmos:off" "disable cosmos flag + docker compose down at $dir" \
         sh -c "rm -f '$flag'; [ -d '$dir' ] && (cd '$dir' && docker compose down) || true"
+      systemctl disable --now "$audit_unit" 2>/dev/null || true
       bold "cosmos down."
       ;;
     status)
       if [ -f "$flag" ]; then echo "flag: enabled"; else echo "flag: disabled"; fi
       docker ps --filter "name=cosmos" \
         --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+      systemctl --no-pager --lines=0 status "$audit_unit" 2>/dev/null | sed -n '1,3p' || true
       ;;
     *) usage; exit 2 ;;
   esac
@@ -425,6 +430,26 @@ for line in sys.stdin:
       local pat="${1:?pattern required}"
       [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
       grep -i -- "$pat" "$AUDIT_LOG" || true
+      ;;
+    cosmos-events)
+      local n=20
+      [ "${1:-}" = "-n" ] && n="${2:?count required}"
+      [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
+      python3 - "$AUDIT_LOG" "$n" <<'PY'
+import json, sys
+path, count = sys.argv[1], int(sys.argv[2])
+entries = []
+with open(path, encoding="utf-8") as fh:
+    for line in fh:
+        try:
+            entry = json.loads(line)
+        except Exception:
+            continue
+        if str(entry.get("cmd", "")).startswith("cosmos:"):
+            entries.append(entry)
+for e in entries[-count:]:
+    print(f"{e.get('ts','')}  {e.get('cmd',''):<28}  verdict={e.get('verdict','')}  hash={e.get('diff_hash','')}  {e.get('summary','')}")
+PY
       ;;
     *) usage; exit 2 ;;
   esac

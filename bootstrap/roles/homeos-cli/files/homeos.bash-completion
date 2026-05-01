@@ -19,7 +19,7 @@ _homeos() {
       esac
       ;;
     install) COMPREPLY=( $(compgen -W "$installers" -- "$cur") ) ;;
-    audit)   COMPREPLY=( $(compgen -W "tail search" -- "$cur") ) ;;
+    audit)   COMPREPLY=( $(compgen -W "tail search cosmos-events" -- "$cur") ) ;;
     "")      COMPREPLY=( $(compgen -W "$commands" -- "$cur") ) ;;
   esac
 }

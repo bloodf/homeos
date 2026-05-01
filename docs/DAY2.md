@@ -51,6 +51,7 @@ sudo homeos secure
 ```
 
 Steps:
+
 1. Refuses to run if `~/.ssh/authorized_keys` empty or no recognizable key.
 2. Sets `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/99-homeos.conf`.
 3. Validates with `sshd -t` before restart.
@@ -160,6 +161,7 @@ homeos config portal status         # flag state + container list
 ```
 
 Subdomains (Tailnet only):
+
 - `portal.<tailnet>.ts.net` — Homepage dashboard + `/term/<tool>/`
 - `chat.<tailnet>.ts.net` — Open WebUI
 - `stacks.<tailnet>.ts.net` — Dockge
@@ -180,14 +182,25 @@ homeos config cosmos status
 
 First visit triggers setup wizard. Create admin account immediately.
 
+Cosmos UI container mutations bypass the interactive AI gate, but v0.4 mirrors
+recognized Cosmos Docker actions into the HomeOS audit log with verdict
+`BYPASS`:
+
+```bash
+homeos audit cosmos-events
+homeos audit cosmos-events -n 100
+```
+
+`homeos-cosmos-audit.service` starts only while the Cosmos stack is enabled.
+
 ## Re-runnable semantics
 
 Every command is safe to run twice:
 
-| Command | Twice = |
-|---|---|
+| Command                           | Twice =                                  |
+| --------------------------------- | ---------------------------------------- |
 | `homeos config nas add /dev/sdc1` | no-op (drive already in `nas_disks.yml`) |
-| `homeos config stack up jellyfin` | no-op (already running) |
-| `homeos config secrets set K=V` | overwrites existing value |
-| `homeos config rerun-bootstrap` | full idempotent reapply |
-| `homeos secure` | no-op (password already locked) |
+| `homeos config stack up jellyfin` | no-op (already running)                  |
+| `homeos config secrets set K=V`   | overwrites existing value                |
+| `homeos config rerun-bootstrap`   | full idempotent reapply                  |
+| `homeos secure`                   | no-op (password already locked)          |

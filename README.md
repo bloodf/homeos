@@ -85,6 +85,8 @@ homeos config net tailscale-up [--auth-key KEY]
 homeos config net caddy-reload
 homeos config backup target set /srv/nas/backups
 homeos config backup run
+homeos config cosmos on|off|status
+homeos audit tail|search|cosmos-events
 ```
 
 ## Repository layout
@@ -98,6 +100,7 @@ homeos/
 │   ├── ARCHITECTURE.md            # how the three stages fit together
 │   ├── BOOTSTRAP.md               # what each Ansible role does
 │   ├── DAY2.md                    # full homeos CLI reference
+│   ├── AI-GATE.md                 # AI review gate, audit log, Cosmos bypass events
 │   ├── NAS.md                     # USB drive workflow + Cockpit/Samba/NFS
 │   ├── SECURITY.md                # threat model + secure-mode flow
 │   ├── HARDWARE.md                # supported hardware, GPU notes, networking

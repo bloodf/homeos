@@ -12,18 +12,46 @@
     state: directory
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
-    mode: '0755'
+    mode: "0755"
   loop:
     - /opt/stacks/cosmos
     - /srv/cosmos
     - /srv/cosmos/config
     - /srv/cosmos/data
+    - /var/lib/homeos/cosmos-audit
+
+- name: Install Cosmos audit reader
+  ansible.builtin.copy:
+    src: homeos-cosmos-audit
+    dest: /usr/local/sbin/homeos-cosmos-audit
+    mode: "0755"
+
+- name: Cosmos audit systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/homeos-cosmos-audit.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=HomeOS Cosmos bypass audit reader
+      Documentation=file:/opt/homeos/docs/AI-GATE.md
+      After=docker.service
+      Wants=docker.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/sbin/homeos-cosmos-audit
+      Restart=always
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart cosmos audit
 
 - name: Cosmos docker-compose
   ansible.builtin.template:
     src: cosmos-compose.yml.j2
     dest: /opt/stacks/cosmos/docker-compose.yml
-    mode: '0644'
+    mode: "0644"
 
 - name: Check cosmos enable flag
   ansible.builtin.stat:
@@ -37,9 +65,26 @@
     pull: missing
   when: cosmos_flag.stat.exists
 
+- name: Enable Cosmos bypass audit reader (only if enabled)
+  ansible.builtin.systemd:
+    name: homeos-cosmos-audit.service
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: cosmos_flag.stat.exists
+
 - name: Ensure cosmos stack is down (if disabled)
   community.docker.docker_compose_v2:
     project_src: /opt/stacks/cosmos
     state: absent
+  when: not cosmos_flag.stat.exists
+  failed_when: false
+
+- name: Disable Cosmos bypass audit reader (if disabled)
+  ansible.builtin.systemd:
+    name: homeos-cosmos-audit.service
+    enabled: false
+    state: stopped
+    daemon_reload: true
   when: not cosmos_flag.stat.exists
   failed_when: false

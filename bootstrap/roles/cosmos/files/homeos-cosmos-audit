@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Mirror Cosmos-origin container mutations into HomeOS' append-only audit log.
+set -euo pipefail
+
+AUDIT_LOG="${HOMEOS_AUDIT_LOG:-/var/log/homeos-audit.jsonl}"
+STATE_DIR="${HOMEOS_COSMOS_AUDIT_STATE_DIR:-/var/lib/homeos/cosmos-audit}"
+STATE_FILE="$STATE_DIR/seen"
+
+mkdir -p "$(dirname "$AUDIT_LOG")" "$STATE_DIR"
+touch "$AUDIT_LOG" "$STATE_FILE"
+chmod 0644 "$AUDIT_LOG"
+
+hash_text() {
+  printf '%s' "$1" | sha256sum | awk '{print substr($1,1,12)}'
+}
+
+emit_entry() {
+  local action="$1" raw="$2" hash
+  hash="$(hash_text "$raw")"
+  python3 - "$AUDIT_LOG" "$action" "$hash" "$raw" <<'PY'
+import json, os, pathlib, sys, time
+log_path = pathlib.Path(sys.argv[1])
+action = sys.argv[2]
+diff_hash = sys.argv[3]
+raw = sys.argv[4]
+entry = {
+    "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    "cmd": f"cosmos:{action}",
+    "user": "cosmos",
+    "verdict": "BYPASS",
+    "choice": "observed",
+    "diff_hash": diff_hash,
+    "source": "cosmos-audit",
+    "summary": raw[:500],
+}
+with log_path.open("a", encoding="utf-8") as fh:
+    print(json.dumps(entry, separators=(",", ":")), file=fh)
+PY
+}
+
+classify_line() {
+  local line="$1" lower action
+  lower="${line,,}"
+  case "$lower" in
+    *container*stop*|*stop*container*) action="container:stop" ;;
+    *container*start*|*start*container*) action="container:start" ;;
+    *container*restart*|*restart*container*) action="container:restart" ;;
+    *container*remove*|*remove*container*|*container*delete*|*delete*container*) action="container:remove" ;;
+    *container*create*|*create*container*) action="container:create" ;;
+    *image*pull*|*pull*image*) action="image:pull" ;;
+    *image*remove*|*remove*image*|*image*delete*|*delete*image*) action="image:remove" ;;
+    *network*create*|*create*network*) action="network:create" ;;
+    *network*remove*|*remove*network*|*network*delete*|*delete*network*) action="network:remove" ;;
+    *volume*create*|*create*volume*) action="volume:create" ;;
+    *volume*remove*|*remove*volume*|*volume*delete*|*delete*volume*) action="volume:remove" ;;
+    *) return 1 ;;
+  esac
+  printf '%s' "$action"
+}
+
+observe_line() {
+  local line="$1" key action
+  [ -n "$line" ] || return 0
+  action="$(classify_line "$line")" || return 0
+  key="$(hash_text "$action:$line")"
+  if grep -qxF "$key" "$STATE_FILE"; then
+    return 0
+  fi
+  printf '%s\n' "$key" >> "$STATE_FILE"
+  emit_entry "$action" "$line"
+}
+
+follow_file() {
+  local path="$1"
+  [ -e "$path" ] || return 1
+  tail -n 0 -F "$path" 2>/dev/null | while IFS= read -r line; do
+    observe_line "$line"
+  done
+}
+
+follow_docker_logs() {
+  while true; do
+    if docker inspect cosmos >/dev/null 2>&1; then
+      docker logs -f --since=0s cosmos 2>&1 | while IFS= read -r line; do
+        observe_line "$line"
+      done
+    fi
+    sleep 5
+  done
+}
+
+main() {
+  local candidates=(
+    /opt/cosmos/cosmos-server.log
+    /srv/cosmos/cosmos-server.log
+    /srv/cosmos/data/cosmos-server.log
+    /srv/cosmos/data/logs/cosmos-server.log
+    /srv/cosmos/config/cosmos-server.log
+  )
+  local path
+  for path in "${candidates[@]}"; do
+    if [ -e "$path" ]; then
+      follow_file "$path"
+      return 0
+    fi
+  done
+
+  # Cosmos versions differ on where they write logs; Docker logs are the
+  # stable fallback for the v0.4 bypass-warn audit path.
+  follow_docker_logs
+}
+
+main "$@"
