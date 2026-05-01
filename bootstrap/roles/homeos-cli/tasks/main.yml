@@ -25,6 +25,66 @@
     group: "{{ admin_user }}"
     mode: '0700'
 
+- name: HomeOS state dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /var/lib/homeos
+    - /var/lib/homeos/installed.d
+    - /var/lib/homeos/pending
+
+- name: Default AI gate provider (none)
+  ansible.builtin.copy:
+    dest: /var/lib/homeos/ai-gate-provider
+    content: "none\n"
+    mode: '0644'
+    force: false
+
+- name: Audit log
+  ansible.builtin.file:
+    path: /var/log/homeos-audit.jsonl
+    state: touch
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+
+- name: Audit log rotation
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/homeos-audit
+    mode: '0644'
+    content: |
+      /var/log/homeos-audit.jsonl {
+          weekly
+          rotate 520
+          compress
+          missingok
+          notifempty
+          copytruncate
+      }
+
+- name: Installer scripts dir
+  ansible.builtin.file:
+    path: /opt/homeos/bootstrap/installers
+    state: directory
+    mode: '0755'
+
+- name: Mark installer scripts executable
+  ansible.builtin.file:
+    path: "/opt/homeos/bootstrap/installers/{{ item }}"
+    mode: '0755'
+  loop:
+    - ai-keys.sh
+    - ollama.sh
+    - mcp-hub.sh
+    - monitoring.sh
+    - media-stack.sh
+    - offsite-backup.sh
+    - image-gen.sh
+    - voice.sh
+  failed_when: false
+
 - name: Empty secrets file
   ansible.builtin.copy:
     dest: "{{ admin_home }}/.config/homeos/secrets.env"

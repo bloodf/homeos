@@ -70,4 +70,7 @@
     # Cosmos Cloud — alternative portal (auth + container UI)
     @cosmos host cosmos.{$HOMEOS_TAILNET:homeos.example.ts.net}
     handle @cosmos { reverse_proxy localhost:4444 }
+
+    # Optional installers drop snippets here; Caddy hot-reloads on change.
+    import /etc/caddy/conf.d/*.caddy
 }

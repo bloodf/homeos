@@ -9,10 +9,87 @@ HOMEOS_ROOT="/opt/homeos"
 SECRETS="$ADMIN_HOME/.config/homeos/secrets.env"
 NAS_VARS="$HOMEOS_ROOT/bootstrap/vars/nas_disks.yml"
 BACKUP_ENV="/etc/homeos/backup.env"
+AUDIT_LOG="/var/log/homeos-audit.jsonl"
+INSTALLED_DIR="/var/lib/homeos/installed.d"
+GATE_PROVIDER_FILE="/var/lib/homeos/ai-gate-provider"   # claude|openai|openrouter|ollama|none
+PENDING_DIR="/var/lib/homeos/pending"
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
 err()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 need_root() { [ "$(id -u)" -eq 0 ] || err "run with sudo"; }
+
+# ---------- audit log ----------
+audit_log() {
+  # audit_log <command> <verdict> <user_choice> <diff_hash>
+  local cmd="$1" verdict="${2:-n/a}" choice="${3:-n/a}" hash="${4:-n/a}"
+  mkdir -p "$(dirname "$AUDIT_LOG")"
+  python3 -c "
+import json, sys, time, os
+entry = {
+  'ts': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+  'cmd': '$cmd',
+  'user': os.environ.get('SUDO_USER') or os.environ.get('USER') or 'unknown',
+  'verdict': '$verdict',
+  'choice': '$choice',
+  'diff_hash': '$hash',
+}
+print(json.dumps(entry))
+" >> "$AUDIT_LOG" 2>/dev/null || true
+}
+
+# ---------- AI review gate ----------
+ai_provider() {
+  [ -f "$GATE_PROVIDER_FILE" ] && cat "$GATE_PROVIDER_FILE" || echo "none"
+}
+
+ai_review() {
+  # ai_review <intent_label> <diff_text> -> echo verdict to stdout, return 0 always
+  local intent="$1" diff="$2"
+  local provider; provider="$(ai_provider)"
+  [ "$provider" = "none" ] && { echo "skip"; return 0; }
+  # Source secrets so keys reach the CLI
+  [ -f "$SECRETS" ] && set -a && . "$SECRETS" && set +a
+  local prompt="You review HomeOS config changes. Reply with one line: APPROVE | WARN: <reason> | REJECT: <reason>. Intent: $intent. Diff:
+$diff"
+  case "$provider" in
+    claude)     sudo -u "$ADMIN_USER" -E claude -p "$prompt" 2>/dev/null | head -3 || echo "skip" ;;
+    openai)     sudo -u "$ADMIN_USER" -E codex -p "$prompt" 2>/dev/null | head -3 || echo "skip" ;;
+    openrouter) sudo -u "$ADMIN_USER" -E opencode run -m "openrouter/anthropic/claude-3.5-sonnet" "$prompt" 2>/dev/null | head -3 || echo "skip" ;;
+    ollama)     curl -fsS http://127.0.0.1:11434/api/generate -d "{\"model\":\"qwen3:7b\",\"prompt\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$prompt"),\"stream\":false}" 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("response","skip").strip())' || echo "skip" ;;
+    *)          echo "skip" ;;
+  esac
+}
+
+gate() {
+  # gate <intent_label> <diff_text> <command...>
+  # Runs AI review (warn-only) + audit log around the command.
+  local intent="$1" diff="$2"; shift 2
+  local hash; hash="$(printf '%s' "$diff" | sha256sum | head -c 12)"
+  local verdict="skip"
+  if [ "${HOMEOS_NO_REVIEW:-}" = "1" ]; then
+    warn "AI review bypassed (HOMEOS_NO_REVIEW=1)"
+    verdict="bypass"
+  elif [ "$(ai_provider)" != "none" ]; then
+    bold "== AI review ($intent) =="
+    verdict="$(ai_review "$intent" "$diff" | tr -d '\n' | head -c 400)"
+    case "$verdict" in
+      APPROVE*)  printf '\033[32m%s\033[0m\n' "$verdict" ;;
+      WARN*)     printf '\033[33m%s\033[0m\n' "$verdict" ;;
+      REJECT*)   printf '\033[31m%s\033[0m\n' "$verdict" ;;
+      *)         printf '%s\n' "$verdict" ;;
+    esac
+  fi
+  if [ -t 0 ] && [ "${HOMEOS_AUTO_APPLY:-}" != "1" ]; then
+    read -r -p "apply? [y/N] " ans
+    if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+      audit_log "$intent" "$verdict" "abort" "$hash"
+      err "aborted"
+    fi
+  fi
+  audit_log "$intent" "$verdict" "apply" "$hash"
+  "$@"
+}
 
 usage() {
   cat <<'EOF'
@@ -38,6 +115,12 @@ homeos — HomeOS day-2 ops
   homeos config backup run                   trigger backup now
   homeos config portal on|off|status         toggle web portal (Homepage + Open WebUI + ttyd)
   homeos config cosmos on|off|status         toggle Cosmos Cloud (alt portal: auth + container UI)
+  homeos config gate set <provider>          AI review provider: claude|openai|openrouter|ollama|none
+  homeos config gate show
+  homeos install <feature> [--reconfigure]   opt-in installer (see: homeos install --list)
+  homeos install --list
+  homeos audit tail [-n N]                   tail audit log
+  homeos audit search <pattern>
 EOF
 }
 
@@ -93,7 +176,9 @@ cmd_doctor() {
 # ---------- config rerun-bootstrap ----------
 cmd_rerun_bootstrap() {
   need_root
-  ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" "$@"
+  local diff="ansible-playbook full-bootstrap re-run, args: $*"
+  gate "rerun-bootstrap" "$diff" \
+    ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" "$@"
 }
 
 # ---------- secrets ----------
@@ -242,6 +327,7 @@ cmd_portal() {
       need_root
       [ -d "$dir" ] || err "portal stack not installed at $dir — run rerun-bootstrap"
       mkdir -p "$(dirname "$flag")"
+      gate "portal:on" "enable portal flag + docker compose up at $dir" true
       touch "$flag"
       (cd "$dir" && docker compose up -d)
       bold "portal up. Tailscale URLs:"
@@ -296,6 +382,85 @@ cmd_cosmos() {
   esac
 }
 
+# ---------- gate ----------
+cmd_gate() {
+  local sub="${1:?set|show}"; shift || true
+  case "$sub" in
+    set)
+      need_root
+      local p="${1:?provider required: claude|openai|openrouter|ollama|none}"
+      case "$p" in claude|openai|openrouter|ollama|none) ;; *) err "unknown provider $p" ;; esac
+      mkdir -p /var/lib/homeos
+      echo "$p" > "$GATE_PROVIDER_FILE"
+      bold "AI review gate provider: $p"
+      ;;
+    show)
+      echo "provider: $(ai_provider)"
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- audit ----------
+cmd_audit() {
+  local sub="${1:-tail}"; shift || true
+  case "$sub" in
+    tail)
+      local n=20
+      [ "${1:-}" = "-n" ] && n="$2"
+      [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
+      tail -n "$n" "$AUDIT_LOG" | python3 -c '
+import sys, json
+for line in sys.stdin:
+  try:
+    e = json.loads(line)
+    print(f"{e[\"ts\"]}  {e[\"user\"]:>10}  {e[\"cmd\"]:<28}  verdict={e[\"verdict\"][:40]:<40}  choice={e[\"choice\"]}")
+  except Exception:
+    print(line.rstrip())
+'
+      ;;
+    search)
+      local pat="${1:?pattern required}"
+      [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
+      grep -i -- "$pat" "$AUDIT_LOG" || true
+      ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+# ---------- install ----------
+INSTALLERS=(ollama mcp-hub media-stack offsite-backup ai-keys monitoring image-gen voice)
+
+install_flag() { echo "$INSTALLED_DIR/$1.installed"; }
+is_installed() { [ -f "$(install_flag "$1")" ]; }
+mark_installed() { mkdir -p "$INSTALLED_DIR"; touch "$(install_flag "$1")"; }
+
+cmd_install() {
+  local feat="${1:-}"; shift || true
+  if [ "$feat" = "--list" ] || [ -z "$feat" ]; then
+    bold "available installers:"
+    for f in "${INSTALLERS[@]}"; do
+      if is_installed "$f"; then echo "  [x] $f"; else echo "  [ ] $f"; fi
+    done
+    echo
+    echo "usage: sudo homeos install <feature> [--reconfigure]"
+    return 0
+  fi
+  local reconfigure=0
+  [ "${1:-}" = "--reconfigure" ] && reconfigure=1
+  need_root
+  if is_installed "$feat" && [ "$reconfigure" -eq 0 ]; then
+    bold "$feat already installed (use --reconfigure to redo)"
+    return 0
+  fi
+  local script="/opt/homeos/bootstrap/installers/${feat}.sh"
+  [ -x "$script" ] || err "no installer at $script"
+  gate "install:$feat" "feature=$feat reconfigure=$reconfigure" \
+    bash "$script" $([ "$reconfigure" -eq 1 ] && echo "--reconfigure")
+  mark_installed "$feat"
+  bold "installed: $feat"
+}
+
 # ---------- secure ----------
 cmd_secure() {
   need_root
@@ -322,9 +487,11 @@ cmd_secure() {
 main() {
   local top="${1:-}"; shift || true
   case "$top" in
-    status) cmd_status "$@" ;;
-    doctor) cmd_doctor "$@" ;;
-    secure) cmd_secure "$@" ;;
+    status)  cmd_status "$@" ;;
+    doctor)  cmd_doctor "$@" ;;
+    secure)  cmd_secure "$@" ;;
+    install) cmd_install "$@" ;;
+    audit)   cmd_audit "$@" ;;
     config)
       local section="${1:-}"; shift || true
       case "$section" in
@@ -336,6 +503,7 @@ main() {
         backup)          cmd_backup "$@" ;;
         portal)          cmd_portal "$@" ;;
         cosmos)          cmd_cosmos "$@" ;;
+        gate)            cmd_gate "$@" ;;
         *) usage; exit 2 ;;
       esac
       ;;

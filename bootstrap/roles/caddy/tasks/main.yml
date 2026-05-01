@@ -18,6 +18,12 @@
     name: caddy
     state: present
 
+- name: Caddy conf.d (snippets dir for installers)
+  ansible.builtin.file:
+    path: /etc/caddy/conf.d
+    state: directory
+    mode: '0755'
+
 - name: Drop Caddyfile
   ansible.builtin.template:
     src: Caddyfile.j2

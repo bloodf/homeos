@@ -1,8 +1,9 @@
 _homeos() {
   local cur prev words cword
   _init_completion || return
-  local commands="status doctor secure config"
-  local config_subs="rerun-bootstrap secrets nas stack net backup portal cosmos"
+  local commands="status doctor secure config install audit"
+  local config_subs="rerun-bootstrap secrets nas stack net backup portal cosmos gate"
+  local installers="ollama mcp-hub media-stack offsite-backup ai-keys monitoring image-gen voice --list"
   case "${words[1]}" in
     config)
       case "${words[2]}" in
@@ -13,10 +14,13 @@ _homeos() {
         backup)  COMPREPLY=( $(compgen -W "target run" -- "$cur") ) ;;
         portal)  COMPREPLY=( $(compgen -W "on off status" -- "$cur") ) ;;
         cosmos)  COMPREPLY=( $(compgen -W "on off status" -- "$cur") ) ;;
+        gate)    COMPREPLY=( $(compgen -W "set show" -- "$cur") ) ;;
         *)       COMPREPLY=( $(compgen -W "$config_subs" -- "$cur") ) ;;
       esac
       ;;
-    "")        COMPREPLY=( $(compgen -W "$commands" -- "$cur") ) ;;
+    install) COMPREPLY=( $(compgen -W "$installers" -- "$cur") ) ;;
+    audit)   COMPREPLY=( $(compgen -W "tail search" -- "$cur") ) ;;
+    "")      COMPREPLY=( $(compgen -W "$commands" -- "$cur") ) ;;
   esac
 }
 complete -F _homeos homeos
