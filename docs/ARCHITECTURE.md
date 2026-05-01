@@ -114,14 +114,16 @@ upstream netinst ISO with three small changes (preseed, boot config, payload).
 
 `late_command` runs as the last step of the installer. Ours:
 
-1. Creates `/home/admin/.ssh/`, copies `authorized_keys` if shipped.
+1. Renames the temporary Debian Installer account `diadmin` to `admin`, fixes
+   the primary group and `/home/admin` ownership, creates `/home/admin/.ssh/`,
+   and copies `authorized_keys` if shipped.
 2. Runs `chage -d 0 admin` to expire the password (force change on first SSH).
-3. Adds `admin ALL=(ALL) NOPASSWD:ALL` in `/etc/sudoers.d/admin`.
+3. Adds and validates `admin ALL=(ALL) NOPASSWD:ALL` in `/etc/sudoers.d/admin`.
 4. Copies `/cdrom/homeos` → `/opt/homeos` (so Stage B has its files after USB removal).
 5. Installs + enables `homeos-firstboot.service`.
-6. If `/dev/sdb` exists: wipes it, creates `vg1`, allocates swap LV (16 GB) and
-   cache LV (rest of disk). The `|| true` guard means the install never fails
-   on a single-disk box.
+6. If `/dev/sdb` exists and is not mounted installer media: wipes it, creates
+   `vg1`, allocates swap LV (16 GB) and cache LV (rest of disk). The `|| true`
+   guard means the install never fails on a single-disk box.
 
 ## Stage B — Ansible playbook
 
@@ -145,8 +147,9 @@ for what each role does.
 - `ssh` second so even if a later role fails the box is still reachable.
 - `docker` before `node` and `brew` because some npm packages have
   optional Docker integrations.
-- `gpu-intel` before `stacks` (Jellyfin) because Jellyfin's compose file
-  references `/dev/dri` and the `render` group.
+- `gpu-intel` before `stacks` (Jellyfin) because Jellyfin can use `/dev/dri`
+  and the `render` group when present; the compose template omits device
+  passthrough on no-GPU boxes so bootstrap still completes.
 - `ai-clis` before `github-tools` because some tools use the AI CLIs.
 - `tailscale → caddy` because Caddy reads `tailscale status` for cert
   issuance.

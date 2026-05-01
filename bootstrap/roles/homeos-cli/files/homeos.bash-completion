@@ -7,11 +7,11 @@ _homeos() {
   case "${words[1]}" in
     config)
       case "${words[2]}" in
-        secrets) COMPREPLY=( $(compgen -W "list set get" -- "$cur") ) ;;
+        secrets) COMPREPLY=( $(compgen -W "list set get unset" -- "$cur") ) ;;
         nas)     COMPREPLY=( $(compgen -W "list add remove" -- "$cur") ) ;;
-        stack)   COMPREPLY=( $(compgen -W "up down update logs" -- "$cur") ) ;;
-        net)     COMPREPLY=( $(compgen -W "tailscale-up caddy-reload" -- "$cur") ) ;;
-        backup)  COMPREPLY=( $(compgen -W "target run" -- "$cur") ) ;;
+        stack)   COMPREPLY=( $(compgen -W "list up down restart update logs ps" -- "$cur") ) ;;
+        net)     COMPREPLY=( $(compgen -W "tailscale-up tailscale-down caddy-reload caddy-test" -- "$cur") ) ;;
+        backup)  COMPREPLY=( $(compgen -W "target run snapshots forget restore" -- "$cur") ) ;;
         portal)  COMPREPLY=( $(compgen -W "on off status" -- "$cur") ) ;;
         cosmos)  COMPREPLY=( $(compgen -W "on off status" -- "$cur") ) ;;
         gate)    COMPREPLY=( $(compgen -W "set show" -- "$cur") ) ;;

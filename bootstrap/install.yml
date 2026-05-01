@@ -59,13 +59,15 @@
     - role: firstboot
 
   post_tasks:
-    - name: Mark bootstrap complete
-      ansible.builtin.file:
-        path: /var/lib/homeos/bootstrapped
-        state: touch
-        mode: '0644'
-
     - name: Log bootstrap success
       ansible.builtin.lineinfile:
         path: /var/log/homeos-bootstrap.log
         line: "==== bootstrap complete {{ ansible_date_time.iso8601 }} ===="
+        create: true
+        mode: '0644'
+
+    - name: Mark bootstrap complete after successful play
+      ansible.builtin.file:
+        path: /var/lib/homeos/bootstrapped
+        state: touch
+        mode: '0644'

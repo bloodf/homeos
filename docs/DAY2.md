@@ -54,10 +54,12 @@ sudo homeos secure
 Steps:
 
 1. Refuses to run if `~/.ssh/authorized_keys` empty or no recognizable key.
-2. Sets `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/99-homeos.conf`.
-3. Validates with `sshd -t` before restart.
-4. `systemctl restart ssh`.
-5. `passwd -l admin` (locks password).
+2. Repairs `~/.ssh` and `authorized_keys` ownership/modes for `admin`.
+3. Sets `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/99-homeos.conf`.
+4. Validates with `sshd -t` and confirms effective public-key auth plus
+   `.ssh/authorized_keys` lookup with `sshd -T` before restart.
+5. `systemctl restart ssh`.
+6. `passwd -l admin` (locks password).
 
 Recovery if locked out: boot from USB, mount root, edit
 `/etc/ssh/sshd_config.d/99-homeos.conf`, run `passwd -u admin`.
@@ -109,7 +111,7 @@ re-runs the `nas` role.
 Docker Compose lifecycle.
 
 ```
-homeos config stack list                     # enabled stacks + state
+homeos config stack list                     # installed stack names
 homeos config stack up <name>                # docker compose up -d
 homeos config stack down <name>              # docker compose down
 homeos config stack restart <name>
@@ -128,12 +130,12 @@ Tailscale + Caddy.
 sudo homeos config net tailscale-up                          # interactive auth
 sudo homeos config net tailscale-up --auth-key tskey-auth-... # one-shot
 sudo homeos config net tailscale-down
-sudo homeos config net caddy-reload                          # regen Caddyfile
+sudo homeos config net caddy-reload                          # reload Caddy
 sudo homeos config net caddy-test                            # caddy validate
 ```
 
-`caddy-reload` reads current Tailscale magic DNS hostname and rewrites
-`/etc/caddy/Caddyfile` accordingly.
+`caddy-reload` reloads the current Caddy configuration. Use `caddy-test` first
+when editing Caddy configuration by hand.
 
 ## `homeos config backup`
 
@@ -141,11 +143,11 @@ Restic to a local NAS drive.
 
 ```
 sudo homeos config backup target set /srv/nas/<label>        # init repo
-homeos config backup target show
+sudo homeos config backup target show
 sudo homeos config backup run                                # one-off backup now
-homeos config backup snapshots                               # restic snapshots
-homeos config backup forget                                  # apply retention
-homeos config backup restore <snapshot> <path>
+sudo homeos config backup snapshots                          # restic snapshots
+sudo homeos config backup forget                             # apply retention
+sudo homeos config backup restore <snapshot> <path>
 ```
 
 Cron runs daily at 02:30 BRT after target is set.

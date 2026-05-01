@@ -44,6 +44,7 @@ git clone https://github.com/bloodf/homeos
 cd homeos
 
 # optional — skip for a public/shared distro
+# Private builds bake this key into /home/admin/.ssh/authorized_keys.
 cp ~/.ssh/id_ed25519.pub secrets/authorized_keys
 
 make iso
@@ -107,10 +108,13 @@ if mDNS is working).
 
 ```bash
 ssh admin@<ip>
-# password: homeos
+# public ISO password: homeos
 # you will be FORCED to change the password — pick something strong, you'll
 # only use it for the next 60 seconds.
 ```
+
+Private ISOs with `secrets/authorized_keys` baked in can use key-based SSH
+immediately, but the fallback `homeos` password is still expired until changed.
 
 After the password change you're at a shell. The bootstrap may still be
 running in the background:
@@ -152,8 +156,11 @@ sudo homeos secure
 This:
 - Refuses to run if `~/.ssh/authorized_keys` is empty or has no recognizable
   key line.
+- Repairs `~/.ssh` and `authorized_keys` ownership/modes for `admin`.
 - Sets `PasswordAuthentication no` in `/etc/ssh/sshd_config.d/99-homeos.conf`.
-- Validates the new sshd config with `sshd -t` before restarting.
+- Validates the new sshd config with `sshd -t` and confirms effective
+  public-key auth plus `.ssh/authorized_keys` lookup with `sshd -T` before
+  restarting.
 - Locks the admin password (`passwd -l admin`).
 
 Recovery if you lock yourself out: boot from the USB again, edit

@@ -61,14 +61,13 @@ Disk 2 (sdb):
 ```
 
 The LVM cache attach happens in the `base` Ansible role only if `vg1/cache`
-exists. Single-disk boxes skip cache and run swap as a swap **file** on
-`/`.
+exists. Single-disk boxes skip the cache/swap VG.
 
 ### Single-disk fallback
 
-The preseed `late_command` second-disk step is wrapped with `|| true`. If
-`/dev/sdb` doesn't exist, the install proceeds. The bootstrap creates
-`/swapfile` (8 GB) instead of an LVM swap LV.
+The preseed `late_command` second-disk step is guarded and wrapped with
+`|| true`. If `/dev/sdb` doesn't exist, is mounted, or looks like ISO/UDF
+installer media, the install proceeds without the cache/swap VG.
 
 ### Disk roles for NAS
 

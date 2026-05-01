@@ -176,17 +176,27 @@ homeos — HomeOS day-2 ops
   homeos config secrets list
   homeos config secrets set KEY=VAL          (or KEY VAL)
   homeos config secrets get KEY
+  homeos config secrets unset KEY
   homeos config nas list
   homeos config nas add /dev/sdX[N]          mount + share USB drive
   homeos config nas remove LABEL
+  homeos config stack list
   homeos config stack up    NAME
   homeos config stack down  NAME
+  homeos config stack restart NAME
   homeos config stack update NAME            pull + recreate
   homeos config stack logs  NAME
+  homeos config stack ps    NAME
   homeos config net tailscale-up [--auth-key KEY]
+  homeos config net tailscale-down
   homeos config net caddy-reload
-  homeos config backup target set /srv/nas/<label>
-  homeos config backup run                   trigger backup now
+  homeos config net caddy-test
+  sudo homeos config backup target set /srv/nas/<label>
+  sudo homeos config backup target show
+  sudo homeos config backup run              trigger backup now
+  sudo homeos config backup snapshots
+  sudo homeos config backup forget
+  sudo homeos config backup restore SNAPSHOT PATH
   homeos config portal on|off|status         toggle web portal (Homepage + Open WebUI + ttyd)
   homeos config cosmos on|off|status         toggle Cosmos Cloud (alt portal: auth + container UI)
   homeos config gate set <provider>          AI review provider: claude|openai|openrouter|ollama|none
@@ -287,11 +297,26 @@ import pathlib, sys
 path = pathlib.Path(sys.argv[1])
 key = sys.argv[2]
 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-path.write_text("\n".join(line for line in lines if not line.startswith(key + "=")) + ("\n" if lines else ""), encoding="utf-8")
+kept = [line for line in lines if not line.startswith(key + "=")]
+path.write_text(("\n".join(kept) + "\n") if kept else "", encoding="utf-8")
 PY
       echo "${k}=${v}" >> "$f"
       chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_GROUP" "$f"
       echo "set $k"
+      ;;
+    unset)
+      local k="${1:?KEY required}"
+      gate "secrets:unset:$k" "unset secret key $k (value redacted)" true
+      python3 - "$f" "$k" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+key = sys.argv[2]
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+kept = [line for line in lines if not line.startswith(key + "=")]
+path.write_text(("\n".join(kept) + "\n") if kept else "", encoding="utf-8")
+PY
+      chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_GROUP" "$f"
+      echo "unset $k"
       ;;
     *) usage; exit 2 ;;
   esac
@@ -349,14 +374,24 @@ PY
 
 # ---------- stack ----------
 cmd_stack() {
-  local sub="${1:?up|down|update|logs}"; local name="${2:?stack name}"
+  local sub="${1:-list}"
+  if [ "$sub" = "list" ]; then
+    for dir in /opt/stacks/*; do
+      [ -f "$dir/docker-compose.yml" ] || continue
+      basename "$dir"
+    done
+    return 0
+  fi
+  local name="${2:?stack name}"
   local dir="/opt/stacks/$name"
   [ -d "$dir" ] || err "no stack at $dir"
   case "$sub" in
-    up)     gate "stack:up:$name"     "compose up at $dir"            bash -c 'cd "$1" && docker compose up -d' _ "$dir" ;;
-    down)   gate "stack:down:$name"   "compose down at $dir"          bash -c 'cd "$1" && docker compose down' _ "$dir" ;;
-    update) gate "stack:update:$name" "compose pull+recreate at $dir" bash -c 'cd "$1" && docker compose pull && docker compose up -d' _ "$dir" ;;
-    logs)   (cd "$dir" && docker compose logs -f) ;;
+    up)      gate "stack:up:$name"      "compose up at $dir"            bash -c 'cd "$1" && docker compose up -d' _ "$dir" ;;
+    down)    gate "stack:down:$name"    "compose down at $dir"          bash -c 'cd "$1" && docker compose down' _ "$dir" ;;
+    restart) gate "stack:restart:$name" "compose restart at $dir"       bash -c 'cd "$1" && docker compose restart' _ "$dir" ;;
+    update)  gate "stack:update:$name"  "compose pull+recreate at $dir" bash -c 'cd "$1" && docker compose pull && docker compose up -d' _ "$dir" ;;
+    logs)    (cd "$dir" && docker compose logs -f) ;;
+    ps)      (cd "$dir" && docker compose ps) ;;
     *) usage; exit 2 ;;
   esac
 }
@@ -381,29 +416,96 @@ cmd_net() {
       [ -n "$fqdn" ] && echo "HOMEOS_TAILNET=$fqdn" > /etc/default/caddy
       systemctl reload caddy 2>/dev/null || true
       ;;
+    tailscale-down)
+      need_root
+      gate "net:tailscale-down" "tailscale down" tailscale down
+      ;;
     caddy-reload)
       need_root
       systemctl reload caddy
+      ;;
+    caddy-test)
+      caddy validate --config /etc/caddy/Caddyfile
       ;;
     *) usage; exit 2 ;;
   esac
 }
 
 # ---------- backup ----------
+backup_require_env() {
+  [ -f "$BACKUP_ENV" ] || err "no $BACKUP_ENV — rerun bootstrap"
+  # shellcheck disable=SC1090
+  source "$BACKUP_ENV"
+  [ -n "${RESTIC_REPOSITORY:-}" ] || err "backup target unset — run: sudo homeos config backup target set /srv/nas/<label>"
+  export RESTIC_REPOSITORY RESTIC_PASSWORD_FILE
+}
+
+backup_write_target() {
+  local path="$1"
+  python3 - "$BACKUP_ENV" "$path" <<'PY'
+import pathlib, sys
+env_path = pathlib.Path(sys.argv[1])
+target = sys.argv[2]
+lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+found = False
+out = []
+for line in lines:
+    if line.startswith("RESTIC_REPOSITORY="):
+        out.append(f"RESTIC_REPOSITORY={target}")
+        found = True
+    else:
+        out.append(line)
+if not found:
+    out.append(f"RESTIC_REPOSITORY={target}")
+env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PY
+}
+
 cmd_backup() {
-  local sub="${1:?target|run}"; shift || true
+  local sub="${1:?target|run|snapshots|forget|restore}"; shift || true
   case "$sub" in
     target)
-      local action="${1:?set}"; local path="${2:?path required}"
-      need_root
-      [ "$action" = "set" ] || err "only 'set' supported"
-      sed -i "s|^RESTIC_REPOSITORY=.*|RESTIC_REPOSITORY=$path|" "$BACKUP_ENV"
-      mkdir -p "$path"
-      echo "backup target: $path"
+      local action="${1:?set|show}"; shift || true
+      case "$action" in
+        set)
+          local path="${1:?path required}"
+          need_root
+          mkdir -p "$(dirname "$BACKUP_ENV")"
+          [ -f "$BACKUP_ENV" ] || printf 'RESTIC_REPOSITORY=\nRESTIC_PASSWORD_FILE=/etc/homeos/restic.pass\nBACKUP_PATHS="/srv /opt/stacks /home/admin"\n' > "$BACKUP_ENV"
+          chmod 0600 "$BACKUP_ENV"
+          mkdir -p "$path"
+          backup_write_target "$path"
+          backup_require_env
+          restic snapshots >/dev/null 2>&1 || restic init
+          echo "backup target: $path"
+          ;;
+        show)
+          # shellcheck disable=SC1090
+          [ -f "$BACKUP_ENV" ] && source "$BACKUP_ENV"
+          echo "backup target: ${RESTIC_REPOSITORY:-unset}"
+          ;;
+        *) usage; exit 2 ;;
+      esac
       ;;
     run)
       need_root
       /usr/local/sbin/homeos-backup
+      ;;
+    snapshots)
+      backup_require_env
+      restic snapshots
+      ;;
+    forget)
+      need_root
+      backup_require_env
+      restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+      ;;
+    restore)
+      need_root
+      local snapshot="${1:?snapshot required}" path="${2:?restore target path required}"
+      backup_require_env
+      mkdir -p "$path"
+      restic restore "$snapshot" --target "$path"
       ;;
     *) usage; exit 2 ;;
   esac
@@ -725,22 +827,49 @@ cmd_install() {
 # ---------- secure ----------
 cmd_secure() {
   need_root
-  local ak="$ADMIN_HOME/.ssh/authorized_keys"
+  local ssh_dir="$ADMIN_HOME/.ssh"
+  local ak="$ssh_dir/authorized_keys"
   if [ ! -s "$ak" ]; then
     err "no $ak — upload your pubkey first (scp ~/.ssh/id_ed25519.pub admin@host:.ssh/authorized_keys)"
   fi
-  if ! grep -qE '^(ssh-(rsa|ed25519|dss)|ecdsa-sha2)' "$ak"; then
+  if ! grep -qE '(^|[[:space:]])(ssh-(rsa|ed25519|dss)|ecdsa-sha2-[^[:space:]]+)[[:space:]]' "$ak"; then
     err "$ak has no recognizable public key line — refusing to lock"
   fi
+  install -d -m 700 -o "$ADMIN_USER" -g "$ADMIN_GROUP" "$ssh_dir"
+  chown "$ADMIN_USER:$ADMIN_GROUP" "$ak"
+  chmod 600 "$ak"
+
   local conf=/etc/ssh/sshd_config.d/99-homeos.conf
+  mkdir -p "$(dirname "$conf")"
+  [ -f "$conf" ] || touch "$conf"
+  local backup; backup="$(mktemp)"
+  cp -a "$conf" "$backup"
   sed -i 's/^PasswordAuthentication .*/PasswordAuthentication no/' "$conf"
   if ! grep -q '^PasswordAuthentication no' "$conf"; then
     echo "PasswordAuthentication no" >> "$conf"
   fi
-  sshd -t || err "sshd config invalid — aborting before restart"
+  if ! sshd -t; then
+    cp -a "$backup" "$conf"
+    rm -f "$backup"
+    err "sshd config invalid — restored previous config and kept password auth unchanged"
+  fi
+  local sshd_effective
+  sshd_effective="$(sshd -T -C "user=$ADMIN_USER,host=localhost,addr=127.0.0.1" 2>/dev/null || true)"
+  if ! grep -q '^pubkeyauthentication yes$' <<<"$sshd_effective"; then
+    cp -a "$backup" "$conf"
+    rm -f "$backup"
+    err "sshd effective config does not allow public-key auth for $ADMIN_USER — refusing to lock"
+  fi
+  if ! grep '^authorizedkeysfile ' <<<"$sshd_effective" | grep -Eq '(^|[[:space:]])(%h/)?\.ssh/authorized_keys([[:space:]]|$)'; then
+    cp -a "$backup" "$conf"
+    rm -f "$backup"
+    err "sshd effective config does not read .ssh/authorized_keys for $ADMIN_USER — refusing to lock"
+  fi
+  rm -f "$backup"
   systemctl restart ssh
   passwd -l "$ADMIN_USER"
   bold "secured: password auth off, $ADMIN_USER password locked"
+  echo "validated $ak permissions, sshd public-key auth, and authorized-keys lookup before locking"
   echo "to undo: sudo passwd -u $ADMIN_USER && edit $conf"
 }
 

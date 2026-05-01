@@ -7,9 +7,7 @@
     remote_src: true
   failed_when: false
 
-- name: Disable firstboot service after success
+- name: Reload systemd for firstboot unit
   ansible.builtin.systemd:
-    name: homeos-firstboot.service
-    enabled: false
     daemon_reload: true
   failed_when: false

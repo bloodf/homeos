@@ -254,17 +254,21 @@ Self-disabling service.
   [Unit]
   After=network-online.target
   Wants=network-online.target
+  RequiresMountsFor=/opt/homeos
   ConditionPathExists=!/var/lib/homeos/bootstrapped
 
   [Service]
   Type=oneshot
+  ExecStartPre=/bin/sh -c 'mkdir -p /var/lib/homeos; echo "==== homeos-firstboot service start $(date -Is) ===="'
   ExecStartPre=/usr/bin/ansible-galaxy collection install -r /opt/homeos/bootstrap/requirements.yml
   ExecStart=/usr/bin/ansible-playbook -i localhost, -c local /opt/homeos/bootstrap/install.yml
-  ExecStartPost=/usr/bin/touch /var/lib/homeos/bootstrapped
+  ExecStartPost=/bin/sh -c 'echo "==== homeos-firstboot service success $(date -Is) ===="; systemctl disable homeos-firstboot.service'
   StandardOutput=append:/var/log/homeos-bootstrap.log
   StandardError=append:/var/log/homeos-bootstrap.log
   ```
 
-- On success: touches sentinel file and disables itself.
-- On failure: stays enabled, retries on next boot. SSH already works so the
-  operator can debug.
+- The playbook touches `/var/lib/homeos/bootstrapped` only in `post_tasks`,
+  after all roles and the success log task finish.
+- On success: the service logs completion and disables itself.
+- On failure: the marker is absent, the service stays enabled, and it retries
+  on next boot. SSH already works so the operator can debug.

@@ -4,11 +4,13 @@ services:
     container_name: jellyfin
     restart: unless-stopped
     user: "1000:1000"
+{% if homeos_dev_dri.stat.exists | default(false) %}
     group_add:
       - "44"   # video
       - "104"  # render (Debian default; verify on host)
     devices:
       - /dev/dri:/dev/dri
+{% endif %}
     ports:
       - "8096:8096"
       - "8920:8920"

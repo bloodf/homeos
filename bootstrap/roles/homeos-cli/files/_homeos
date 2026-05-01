@@ -25,11 +25,11 @@ _homeos() {
   case $words[2] in
     config)
       case $words[3] in
-        secrets) _values 'op' list set get ;;
+        secrets) _values 'op' list set get unset ;;
         nas)     _values 'op' list add remove ;;
-        stack)   _values 'op' up down update logs ;;
-        net)     _values 'op' tailscale-up caddy-reload ;;
-        backup)  _values 'op' target run ;;
+        stack)   _values 'op' list up down restart update logs ps ;;
+        net)     _values 'op' tailscale-up tailscale-down caddy-reload caddy-test ;;
+        backup)  _values 'op' target run snapshots forget restore ;;
         portal)  _values 'op' on off status ;;
         cosmos)  _values 'op' on off status ;;
         gate)    _values 'op' set show ;;

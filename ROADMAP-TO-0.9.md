@@ -93,35 +93,35 @@ Goal: fix installer/bootstrap reliability issues discovered so far and make the 
 
 ### Debian installer and account setup
 
-- [ ] Confirm preseed uses a non-reserved temporary installer username and renames it to `admin` in `late_command`.
-- [ ] Confirm `/home/admin`, group ownership, sudoers, SSH authorized keys, and password expiry all survive the rename.
-- [ ] Confirm public ISO mode still works with default password `homeos` expired on first login.
-- [ ] Confirm private ISO mode still bakes `secrets/authorized_keys` without requiring that file to exist.
-- [ ] Confirm `homeos secure` behavior matches docs and does not lock out key-based access.
-- [ ] Improve `homeos secure` to prove or at least safely validate key-login readiness before disabling password auth, if feasible without VM/QEMU.
+- [x] Confirm preseed uses a non-reserved temporary installer username and renames it to `admin` in `late_command` — evidence: static source review confirms `passwd/username` is `diadmin`, required late_command setup records fail-closed status, and account setup runs `usermod -l admin -d /home/admin -m diadmin`, 2026-05-01.
+- [x] Confirm `/home/admin`, group ownership, sudoers, SSH authorized keys, and password expiry all survive the rename — evidence: static source review confirms late_command renames or creates the admin group, sets it as primary, and repairs home ownership, conditionally copies keys, validates sudoers with `visudo`, expires password with `chage -d 0`, static grep passed, 2026-05-01.
+- [x] Confirm public ISO mode still works with default password `homeos` expired on first login — evidence: static source review confirms optional key copy remains guarded, default password stays `homeos`, `chage -d 0 admin` retained and docs updated; runtime login validation deferred to v1.0, 2026-05-01.
+- [x] Confirm private ISO mode still bakes `secrets/authorized_keys` without requiring that file to exist — evidence: static source review confirms late_command copies `/opt/homeos/secrets/authorized_keys` only when non-empty after payload copy; public builds do not require the file; runtime validation deferred to v1.0, 2026-05-01.
+- [x] Confirm `homeos secure` behavior matches docs and does not lock out key-based access — evidence: static source review confirms docs updated and CLI repairs key ownership/modes before changing sshd config, then validates before restart; live SSH proof deferred to v1.0, 2026-05-01.
+- [x] Improve `homeos secure` to prove or at least safely validate key-login readiness before disabling password auth, if feasible without VM/QEMU — evidence: static source review confirms `homeos secure` checks recognizable keys, fixes permissions, runs `sshd -t`, and verifies effective `pubkeyauthentication yes` and `.ssh/authorized_keys` lookup via `sshd -T` before locking password auth, 2026-05-01.
 
 ### Firstboot and Ansible reliability
 
-- [ ] Verify `homeos-firstboot.service` ordering, logging, idempotence, and self-disable behavior from source.
-- [ ] Verify `bootstrap/install.yml` role order remains coherent after v0.5/v0.6 changes.
-- [ ] Ensure missing optional hardware such as `/dev/dri` does not fail bootstrap fatally.
-- [ ] Ensure missing second disk `/dev/sdb` does not fail install or firstboot.
-- [ ] Ensure network wait behavior is clear and bounded.
-- [ ] Ensure firstboot creates `/var/lib/homeos/bootstrapped` only after success.
-- [ ] Review roles for shell commands that should be modules or guarded idempotently.
+- [x] Verify `homeos-firstboot.service` ordering, logging, idempotence, and self-disable behavior from source — evidence: static source review confirms unit waits for network and `/opt/homeos`, appends explicit start/success logs, uses bootstrapped condition, and disables only in `ExecStartPost` after playbook success, 2026-05-01.
+- [x] Verify `bootstrap/install.yml` role order remains coherent after v0.5/v0.6 changes — evidence: static source review confirms role order; Cosmos remains after portal/stacks and homeos-cli/firstboot remain final installation and service-refresh roles, YAML parse passed, 2026-05-01.
+- [x] Ensure missing optional hardware such as `/dev/dri` does not fail bootstrap fatally — evidence: static source review confirms Jellyfin compose now emits `/dev/dri` device/group passthrough only when `/dev/dri` exists, YAML/template review passed, 2026-05-01.
+- [x] Ensure missing second disk `/dev/sdb` does not fail install or firstboot — evidence: static source review confirms late_command tests required setup status after the optional second-disk block, while the optional block itself may return true and skips absent, mounted, ISO, or UDF `/dev/sdb`; base cache attach already `failed_when: false`, 2026-05-01.
+- [x] Ensure network wait behavior is clear and bounded — evidence: static source review confirms playbook pre-task waits up to 120 seconds for `deb.debian.org:443`; install/troubleshooting docs updated, 2026-05-01.
+- [x] Ensure firstboot creates `/var/lib/homeos/bootstrapped` only after success — evidence: static source review confirms marker moved to final Ansible post-task after success logging; firstboot role no longer disables service before marker, 2026-05-01.
+- [x] Review roles for shell commands that should be modules or guarded idempotently — evidence: static source review confirms assigned roles reviewed; firstboot premature disable removed, second-disk shell guard strengthened, existing optional cache/GPU/Cosmos commands remain guarded, 2026-05-01.
 
 ### CLI/docs drift fixes
 
-- [ ] Reconcile docs with actual `homeos` CLI commands for secrets, stack, net, backup, portal, cosmos, and audit.
-- [ ] Either implement documented commands or remove them from docs; do not leave future-command claims in user docs.
-- [ ] Ensure bash and zsh completions match actual CLI surface.
-- [ ] Update `docs/TROUBLESHOOTING.md` for reserved username and bootstrap diagnostics.
-- [ ] Create `release-notes/v0.7.0.md`.
+- [x] Reconcile docs with actual `homeos` CLI commands for secrets, stack, net, backup, portal, cosmos, and audit — evidence: CLI/docs/completion static matrix passed for documented command surface, 2026-05-01.
+- [x] Either implement documented commands or remove them from docs; do not leave future-command claims in user docs — evidence: implemented missing documented `secrets unset`, stack `list/restart/ps`, net `tailscale-down/caddy-test`, and backup `target show/snapshots/forget/restore`, 2026-05-01.
+- [x] Ensure bash and zsh completions match actual CLI surface — evidence: bash and zsh completions updated; static matrix checked command words against CLI/completions, 2026-05-01.
+- [x] Update `docs/TROUBLESHOOTING.md` for reserved username and bootstrap diagnostics — evidence: reserved `admin`/`diadmin`, firstboot marker retry, network wait, second-disk guard, and secure diagnostics documented, 2026-05-01.
+- [x] Create `release-notes/v0.7.0.md` — evidence: release notes added with scope, validation, and v1.0 QEMU limitations, 2026-05-01.
 
 ### Completion checks
 
-- [ ] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed.
-- [ ] Add any static smoke scripts needed for future orchestrator-run QEMU, but do not run QEMU.
+- [x] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed — evidence: `bash -n` on changed shell scripts passed; PyYAML parse of changed Ansible files passed; `ansible-playbook` not installed so syntax-check skipped with exit 127 recorded, 2026-05-01.
+- [x] Add any static smoke scripts needed for future orchestrator-run QEMU, but do not run QEMU — evidence: no new static smoke script was needed for v0.7 source fixes; preseed and CLI/docs static checks were run inline and QEMU/ISO builds were not run, 2026-05-01.
 - [ ] Orchestrator: commit, tag `v0.7.0`, push, publish release, and watch CI. No worker does this.
 
 ## v0.8.0 — Security, supply-chain, docs, and CI hardening

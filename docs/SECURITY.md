@@ -64,14 +64,16 @@ sudo homeos secure
 
 Refuses to run unless:
 1. `~admin/.ssh/authorized_keys` is non-empty.
-2. The file contains at least one line starting with
-   `ssh-rsa`, `ssh-ed25519`, `ssh-dss`, or `ecdsa-sha2`.
+2. The file contains at least one recognizable OpenSSH public key.
+3. `sshd -t` accepts the config after the password-auth change.
+4. `sshd -T` reports effective `pubkeyauthentication yes` for `admin`.
+5. `sshd -T` reports an `authorizedkeysfile` path that includes `.ssh/authorized_keys`.
 
-If both checks pass:
-1. Sets `PasswordAuthentication no`.
-2. `sshd -t` validates new config (refuses to apply if invalid).
-3. `systemctl restart ssh`.
-4. `passwd -l admin`.
+If those checks pass, `homeos secure`:
+1. Repairs `~admin/.ssh` ownership/mode and `authorized_keys` ownership/mode.
+2. Sets `PasswordAuthentication no`.
+3. Restarts SSH.
+4. Locks the `admin` password with `passwd -l admin`.
 
 After `homeos secure`, the only way into the box is:
 - SSH with `admin`'s key.

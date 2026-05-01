@@ -17,6 +17,11 @@
   loop: "{{ stacks }}"
   when: item.enabled
 
+- name: Check for GPU device passthrough
+  ansible.builtin.stat:
+    path: /dev/dri
+  register: homeos_dev_dri
+
 - name: Render stack compose files
   ansible.builtin.template:
     src: "stacks/{{ item.name }}/docker-compose.yml.j2"

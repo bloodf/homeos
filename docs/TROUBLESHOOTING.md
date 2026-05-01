@@ -28,7 +28,19 @@ When the box doesn't behave, check these in order.
 - **Symptom**: installer wiped the wrong disk.
 - **Prevention**: HomeOS preseed targets `/dev/sda`. Disconnect any other
   bootable disks before installing. The preseed will not prompt before
-  formatting.
+  formatting. The optional `/dev/sdb` cache/swap step skips mounted media and
+  ISO/UDF devices so the USB installer is not treated as a cache disk, but you
+  should still disconnect disks you do not want touched.
+
+### Installer reports `admin` is a reserved username
+
+HomeOS intentionally asks Debian Installer to create a temporary `diadmin`
+account because `admin` is reserved by Debian's user setup component. The
+`late_command` then renames `diadmin` to `admin`, renames or selects the
+`admin` group, repairs `/home/admin` ownership, installs sudoers, optionally
+copies baked SSH keys, and expires the default password. If you see a reserved
+username error, verify the ISO contains the current `preseed/preseed.cfg` and
+not an older preseed that requested `passwd/username string admin` directly.
 
 ## First boot (Stage B) issues
 
@@ -49,7 +61,9 @@ Common causes:
 - **GitHub rate limit.** Tool clones can fail. Re-run:
   `sudo homeos config rerun-bootstrap`.
 - **A specific role failed.** The log shows the failed task. Fix the
-  underlying issue and re-run.
+  underlying issue and re-run. `/var/lib/homeos/bootstrapped` is created only
+  after a successful play; if it is absent, `homeos-firstboot.service` will
+  retry on the next boot.
 
 ### `homeos-firstboot.service` succeeded but services aren't running
 
@@ -69,8 +83,9 @@ docker logs <container>
 
 ### Network-online wait
 
-Stage B has `After=network-online.target`. On some hardware the network
-isn't ready when systemd thinks it is. Workaround:
+Stage B has `After=network-online.target` and the playbook also waits up to
+120 seconds for outbound HTTPS to `deb.debian.org:443` before roles start. On
+some hardware the network isn't ready when systemd thinks it is. Workaround:
 
 ```bash
 sudo systemctl edit homeos-firstboot.service
@@ -132,7 +147,9 @@ no recognizable key line
 ```
 
 The file exists but doesn't look like SSH keys. Open it and check for lines
-starting with `ssh-rsa`, `ssh-ed25519`, `ssh-dss`, or `ecdsa-sha2`.
+containing `ssh-rsa`, `ssh-ed25519`, `ssh-dss`, or `ecdsa-sha2-*`. `homeos
+secure` also repairs ownership/modes and refuses to proceed if the resulting
+`sshd -t` or effective public-key-auth check fails.
 
 ## Tailscale issues
 
