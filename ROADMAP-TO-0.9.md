@@ -122,7 +122,7 @@ Goal: fix installer/bootstrap reliability issues discovered so far and make the 
 
 - [x] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed — evidence: `bash -n` on changed shell scripts passed; PyYAML parse of changed Ansible files passed; `ansible-playbook` not installed so syntax-check skipped with exit 127 recorded, 2026-05-01.
 - [x] Add any static smoke scripts needed for future orchestrator-run QEMU, but do not run QEMU — evidence: no new static smoke script was needed for v0.7 source fixes; preseed and CLI/docs static checks were run inline and QEMU/ISO builds were not run, 2026-05-01.
-- [ ] Orchestrator: commit, tag `v0.7.0`, push, publish release, and watch CI. No worker does this.
+- [x] Orchestrator: commit, tag `v0.7.0`, push, publish release, and watch CI. No worker does this — evidence: commit `75b7168`, tag/release `v0.7.0`, CI run `25237384242` passed and attached artifacts, 2026-05-01.
 
 ## v0.8.0 — Security, supply-chain, docs, and CI hardening
 

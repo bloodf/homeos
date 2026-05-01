@@ -28,3 +28,4 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=<redacted fake test key>
 2026-05-01T22:26:50Z — v0.5.0 finalization validated in worktree chore/v0.5-finalize: bash -n homeos/completion passed; shim compile and local Unix-socket harness passed; YAML parse passed; ansible syntax skipped (ansible-playbook unavailable); QEMU not run per ROADMAP-TO-0.9 policy.
 2026-05-01T22:32:20Z — RELEASE v0.5.0 sha=992655f; GitHub release published; CI build run 25235932085 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
 2026-05-01T22:59:30Z — RELEASE v0.6.0 sha=9da8b87; GitHub release published; CI build run 25236717937 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
+2026-05-01T23:24:00Z — RELEASE v0.7.0 sha=75b7168; GitHub release published; CI build run 25237384242 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
