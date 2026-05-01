@@ -11,3 +11,10 @@
 2026-05-01T18:05:28Z — plan updated: [x] verify carryover #6-#12; [x] implement v0.4 Cosmos bypass audit reader + CLI; [x] update docs; [x] run static checks (bash -n, yaml parse, CLI temp audit test, Cosmos audit fake-docker test; ansible syntax skipped: ansible-playbook not installed); [ ] commit v0.4 implementation; [ ] build/smoke/tag if environment permits.
 2026-05-01T18:06:08Z — commit d109170 feat(cosmos): mirror UI actions to audit log; v0.4 implementation static checks passed except ansible syntax unavailable locally.
 2026-05-01T18:06:08Z — plan updated: [x] verify carryover #6-#12; [x] implement v0.4 Cosmos bypass audit reader + CLI; [x] update docs; [x] run static checks; [x] commit v0.4 implementation; [ ] build/smoke/tag if environment permits.
+TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=sk-ant-test-6ce8ea376e8a05d095ad1e7a80702e21
+01d70b71dfb3fe5684103cb625a203969a4920ddb58867dea3cfe3c99345d024  dist/homeos-debian-13.4-amd64.iso
+2026-05-01T18:38:50Z — QEMU smoke attempt failed before boot: /opt/homebrew/bin/qemu-system-x86_64 reports invalid accelerator hvf; retrying without acceleration.
+2026-05-01T19:41:02Z — QEMU smoke failed in Debian installer before SSH: username admin is reserved by d-i user-setup; fixed preseed to skip d-i user creation and create admin in late_command.
+2026-05-01T19:45:00Z — rebuilt smoke ISO after preseed admin-user fix sha256=f301a7cd74726760b2388f6e6503ca1f0ba88404ad2ac832dabb4f5915822048
+2026-05-01T20:20:00Z — parallel agents completed: researcher recommended temp diadmin + late rename; reviewer flagged unclean tree and no successful smoke; planner supplied light QEMU smoke protocol per user scope.
+2026-05-01T20:20:00Z — preseed fix revised: use supported d-i first-user flow with temporary diadmin and rename to admin in late_command; static bash/yaml checks passed.
