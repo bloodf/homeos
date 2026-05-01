@@ -18,3 +18,4 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=sk-ant-test-6ce8ea376e8a05d095ad1e
 2026-05-01T19:45:00Z — rebuilt smoke ISO after preseed admin-user fix sha256=f301a7cd74726760b2388f6e6503ca1f0ba88404ad2ac832dabb4f5915822048
 2026-05-01T20:20:00Z — parallel agents completed: researcher recommended temp diadmin + late rename; reviewer flagged unclean tree and no successful smoke; planner supplied light QEMU smoke protocol per user scope.
 2026-05-01T20:20:00Z — preseed fix revised: use supported d-i first-user flow with temporary diadmin and rename to admin in late_command; static bash/yaml checks passed.
+2026-05-01T20:24:40Z — refreshed GitHub tool pins during smoke ISO build: hindsight=4986e8ec370a29dff5379de5dd9a014840fda9c1.

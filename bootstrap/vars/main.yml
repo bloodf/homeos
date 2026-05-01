@@ -37,7 +37,7 @@ ai_clis_pipx: []
 
 # GitHub tools — clone + build under /opt/tools/<name>
 github_tools:
-  - { name: "hindsight",          repo: "https://github.com/vectorize-io/hindsight.git",          ref: "84c33b104d485d8c85b895f3f25589820ab03186",   build: "node" }
+  - { name: "hindsight",          repo: "https://github.com/vectorize-io/hindsight.git",          ref: "4986e8ec370a29dff5379de5dd9a014840fda9c1",   build: "node" }
   - { name: "code-review-graph",  repo: "https://github.com/tirth8205/code-review-graph.git",      ref: "0919071a9ba353e604981059e99ee2ed98768092",   build: "pipx" }
   - { name: "portless",           repo: "https://github.com/vercel-labs/portless.git",             ref: "4522cf70c94d4569cfcf7e58af5b733579baed08",   build: "node" }
   - { name: "claude-context",     repo: "https://github.com/zilliztech/claude-context.git",        ref: "ead19f4ad66da78243dd9e126de121c19b7874e6",   build: "node" }
