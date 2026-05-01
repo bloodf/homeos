@@ -42,9 +42,10 @@ Provider stored in `/var/lib/homeos/ai-gate-provider`. Keys come from
 | `homeos config rerun-bootstrap` | yes |
 | `homeos config portal on/off` | on |
 | `homeos install <anything>` | yes |
-| `homeos config nas add/remove` | TODO v0.4 |
-| `homeos config secrets set` | TODO v0.4 |
-| `homeos config stack up/down/update` | TODO v0.4 |
+| `homeos config nas add/remove` | yes |
+| `homeos config secrets set` | yes (value redacted from diff) |
+| `homeos config stack up/down/update` | yes |
+| `homeos config cosmos on/off` | yes |
 | `homeos status / doctor / audit` | no (read-only) |
 
 Bypass: `HOMEOS_NO_REVIEW=1 homeos ...` (logged as bypass).
