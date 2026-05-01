@@ -28,6 +28,7 @@ result = subprocess.run(
         pattern,
         "--",
         ":!ROADMAP-TO-0.9.md",
+        ":!**/__pycache__/**",
         ":!.pi/**",
         ":!.omc/**",
     ],
