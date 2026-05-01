@@ -44,7 +44,7 @@ Goal: finalize and release the already-started Cosmos Docker socket shim work. C
 - [x] Create or finalize `release-notes/v0.5.0.md` with user-facing summary and validation notes — evidence: release notes updated for command format, body redaction, static/harness validation, 2026-05-01.
 - [x] Ensure no stale references claim v0.5 is future work once release finalization is complete — evidence: current docs plus legacy `PROJECT-INFO.md`/`HANDOFF.md` updated to describe v0.5 shim as present release scope and point v0.5-v0.9 policy to this roadmap, 2026-05-01.
 - [x] Static validation passes: shell syntax, YAML parsing, targeted shim harness if available — evidence: `bash -n`, PyYAML parse, `python3 -m py_compile`, and local Unix-socket harness passed, 2026-05-01.
-- [ ] Orchestrator: commit, tag `v0.5.0`, push, publish release, and watch CI. No worker does this.
+- [x] Orchestrator: commit, tag `v0.5.0`, push, publish release, and watch CI. No worker does this — evidence: commit `992655f`, tag/release `v0.5.0`, CI run `25235932085` passed and attached artifacts, 2026-05-01.
 
 ## v0.6.0 — Audit replay and sidecar payloads
 
