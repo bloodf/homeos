@@ -1,0 +1,45 @@
+---
+# Cosmos Cloud — alternative portal. Toggle via:
+#   sudo homeos config cosmos on
+# Disable with:
+#   sudo homeos config cosmos off
+# Flag at /var/lib/homeos/cosmos.enabled controls whether bootstrap brings
+# the stack up on this run. Disabled by default.
+
+- name: Cosmos directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0755'
+  loop:
+    - /opt/stacks/cosmos
+    - /srv/cosmos
+    - /srv/cosmos/config
+    - /srv/cosmos/data
+
+- name: Cosmos docker-compose
+  ansible.builtin.template:
+    src: cosmos-compose.yml.j2
+    dest: /opt/stacks/cosmos/docker-compose.yml
+    mode: '0644'
+
+- name: Check cosmos enable flag
+  ansible.builtin.stat:
+    path: /var/lib/homeos/cosmos.enabled
+  register: cosmos_flag
+
+- name: Bring cosmos stack up (only if enabled)
+  community.docker.docker_compose_v2:
+    project_src: /opt/stacks/cosmos
+    state: present
+    pull: missing
+  when: cosmos_flag.stat.exists
+
+- name: Ensure cosmos stack is down (if disabled)
+  community.docker.docker_compose_v2:
+    project_src: /opt/stacks/cosmos
+    state: absent
+  when: not cosmos_flag.stat.exists
+  failed_when: false

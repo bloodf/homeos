@@ -52,6 +52,7 @@
     - role: caddy
     - role: stacks
     - role: portal
+    - role: cosmos
     - role: nas
     - role: backups
     - role: homeos-cli

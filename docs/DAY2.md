@@ -167,6 +167,19 @@ Subdomains (Tailnet only):
 
 See [PORTAL.md](PORTAL.md) for architecture + customization.
 
+## `homeos config cosmos`
+
+Toggle Cosmos Cloud — alt portal w/ built-in auth, container UI, app store.
+Independent of `portal`, both can run side-by-side.
+
+```
+sudo homeos config cosmos on        # bring up at cosmos.<tailnet>.ts.net
+sudo homeos config cosmos off
+homeos config cosmos status
+```
+
+First visit triggers setup wizard. Create admin account immediately.
+
 ## Re-runnable semantics
 
 Every command is safe to run twice:

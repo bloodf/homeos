@@ -143,6 +143,32 @@ homeos config secrets set ANTHROPIC_API_KEY=sk-ant-...
 sudo homeos config portal off && sudo homeos config portal on
 ```
 
+## Alternative: Cosmos Cloud
+
+Cosmos = single-package replacement bundling auth + reverse proxy + container
+UI + app store. Independent of the Homepage stack — toggle separately.
+
+```bash
+sudo homeos config cosmos on        # bring up at cosmos.<tailnet>.ts.net
+sudo homeos config cosmos off
+homeos config cosmos status
+```
+
+Runs `azukaar/cosmos-server:latest` bound to `127.0.0.1:4444`, fronted by
+Caddy at `cosmos.<tailnet>.ts.net`. First visit triggers setup wizard —
+create admin account immediately (Tailscale ACL is your only protection
+until then).
+
+Trade-offs vs default Homepage stack:
+- ✅ Built-in auth (2FA, OIDC, magic links)
+- ✅ App store with one-click installs
+- ✅ Native Docker UI
+- ❌ Wants to be the reverse proxy itself (here we run it behind Caddy)
+- ❌ More opinionated, less Tailscale-native
+- ❌ Heavier resource footprint
+
+Both stacks can run simultaneously. Pick one as primary.
+
 ### Wrong tailnet hostname
 
 `tailnet_host` baked at bootstrap. Reapply after `tailscale up`:

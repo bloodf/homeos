@@ -66,4 +66,8 @@
     # Filebrowser — web file manager
     @files host files.{$HOMEOS_TAILNET:homeos.example.ts.net}
     handle @files { reverse_proxy localhost:8090 }
+
+    # Cosmos Cloud — alternative portal (auth + container UI)
+    @cosmos host cosmos.{$HOMEOS_TAILNET:homeos.example.ts.net}
+    handle @cosmos { reverse_proxy localhost:4444 }
 }

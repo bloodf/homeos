@@ -1,0 +1,19 @@
+---
+# Cosmos Cloud — alternative portal (auth + reverse proxy + container UI).
+# Behind Caddy, so HTTPS is disabled inside Cosmos. UI on 127.0.0.1:4444.
+services:
+  cosmos:
+    image: azukaar/cosmos-server:latest
+    container_name: cosmos
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      COSMOS_HTTP_PORT: "4444"
+      COSMOS_HTTPS_PORT: "4443"
+      COSMOS_HOSTNAME: "cosmos.{{ tailnet_host }}"
+      COSMOS_LOG_LEVEL: "INFO"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/cosmos/config:/config
+      - /srv/cosmos/data:/data
