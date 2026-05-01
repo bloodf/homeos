@@ -198,6 +198,7 @@ cmd_secrets() {
       local arg="${1:?KEY=VAL or KEY VAL required}"
       local k v
       if [[ "$arg" == *=* ]]; then k="${arg%%=*}"; v="${arg#*=}"; else k="$arg"; v="${2:?VAL required}"; fi
+      gate "secrets:set:$k" "set secret key $k (value redacted, length=${#v})" true
       sed -i "/^${k}=/d" "$f"
       echo "${k}=${v}" >> "$f"
       chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_USER" "$f"
@@ -224,6 +225,7 @@ cmd_nas() {
       label="$(blkid -s LABEL -o value "$dev" || true)"
       [ -n "$label" ] || label="nas-$(echo "$uuid" | tr -d - | head -c8)"
       [ -n "$uuid" ] || err "no UUID for $dev"
+      gate "nas:add" "device=$dev uuid=$uuid label=$label fstype=$fstype" true
       python3 - <<PY
 import yaml, pathlib
 p = pathlib.Path("$NAS_VARS")
@@ -241,6 +243,7 @@ PY
     remove)
       need_root
       local label="${1:?label required}"
+      gate "nas:remove" "label=$label (drops mount + share)" true
       python3 - <<PY
 import yaml, pathlib
 p = pathlib.Path("$NAS_VARS")
@@ -261,9 +264,9 @@ cmd_stack() {
   local dir="/opt/stacks/$name"
   [ -d "$dir" ] || err "no stack at $dir"
   case "$sub" in
-    up)     (cd "$dir" && docker compose up -d) ;;
-    down)   (cd "$dir" && docker compose down) ;;
-    update) (cd "$dir" && docker compose pull && docker compose up -d) ;;
+    up)     gate "stack:up:$name"     "compose up at $dir"            sh -c "cd '$dir' && docker compose up -d" ;;
+    down)   gate "stack:down:$name"   "compose down at $dir"          sh -c "cd '$dir' && docker compose down" ;;
+    update) gate "stack:update:$name" "compose pull+recreate at $dir" sh -c "cd '$dir' && docker compose pull && docker compose up -d" ;;
     logs)   (cd "$dir" && docker compose logs -f) ;;
     *) usage; exit 2 ;;
   esac
@@ -360,17 +363,16 @@ cmd_cosmos() {
     on)
       need_root
       [ -d "$dir" ] || err "cosmos stack not installed at $dir — run rerun-bootstrap"
-      mkdir -p "$(dirname "$flag")"
-      touch "$flag"
-      (cd "$dir" && docker compose up -d)
+      gate "cosmos:on" "enable cosmos flag + docker compose up at $dir" \
+        sh -c "mkdir -p '$(dirname "$flag")' && touch '$flag' && cd '$dir' && docker compose up -d"
       bold "cosmos up. URL:"
       echo "  https://cosmos.<tailnet>.ts.net"
       echo "  first-run setup runs in browser; create admin account immediately."
       ;;
     off)
       need_root
-      rm -f "$flag"
-      [ -d "$dir" ] && (cd "$dir" && docker compose down) || true
+      gate "cosmos:off" "disable cosmos flag + docker compose down at $dir" \
+        sh -c "rm -f '$flag'; [ -d '$dir' ] && (cd '$dir' && docker compose down) || true"
       bold "cosmos down."
       ;;
     status)
