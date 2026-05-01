@@ -37,7 +37,7 @@ _homeos() {
       esac
       ;;
     install) _values 'feature' ollama mcp-hub media-stack offsite-backup ai-keys monitoring image-gen voice --list ;;
-    audit)   _values 'op' tail search cosmos-events ;;
+    audit)   _values 'op' tail search show replay cosmos-events ;;
     *) _describe 'command' commands ;;
   esac
 }

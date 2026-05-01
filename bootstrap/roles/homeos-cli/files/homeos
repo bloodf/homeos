@@ -3,39 +3,112 @@
 # Usage: homeos <command> [args...]
 set -euo pipefail
 
-ADMIN_USER="${SUDO_USER:-admin}"
-ADMIN_HOME="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
-HOMEOS_ROOT="/opt/homeos"
+ADMIN_USER="${HOMEOS_ADMIN_USER:-${SUDO_USER:-admin}}"
+ADMIN_GROUP="${HOMEOS_ADMIN_GROUP:-$ADMIN_USER}"
+ADMIN_HOME="${HOMEOS_ADMIN_HOME:-$(getent passwd "$ADMIN_USER" 2>/dev/null | cut -d: -f6 || true)}"
+[ -n "$ADMIN_HOME" ] || ADMIN_HOME="${HOME:-/home/$ADMIN_USER}"
+HOMEOS_ROOT="${HOMEOS_ROOT:-/opt/homeos}"
 SECRETS="$ADMIN_HOME/.config/homeos/secrets.env"
-NAS_VARS="$HOMEOS_ROOT/bootstrap/vars/nas_disks.yml"
-BACKUP_ENV="/etc/homeos/backup.env"
-AUDIT_LOG="/var/log/homeos-audit.jsonl"
-INSTALLED_DIR="/var/lib/homeos/installed.d"
-GATE_PROVIDER_FILE="/var/lib/homeos/ai-gate-provider"   # claude|openai|openrouter|ollama|none
-PENDING_DIR="/var/lib/homeos/pending"
+NAS_VARS="${HOMEOS_NAS_VARS:-$HOMEOS_ROOT/bootstrap/vars/nas_disks.yml}"
+BACKUP_ENV="${HOMEOS_BACKUP_ENV:-/etc/homeos/backup.env}"
+AUDIT_LOG="${HOMEOS_AUDIT_LOG:-/var/log/homeos-audit.jsonl}"
+AUDIT_REPLAY_DIR="${HOMEOS_AUDIT_REPLAY_DIR:-/var/lib/homeos/audit-replay}"
+INSTALLED_DIR="${HOMEOS_INSTALLED_DIR:-/var/lib/homeos/installed.d}"
+GATE_PROVIDER_FILE="${HOMEOS_GATE_PROVIDER_FILE:-/var/lib/homeos/ai-gate-provider}"   # claude|openai|openrouter|ollama|none
+PENDING_DIR="${HOMEOS_PENDING_DIR:-/var/lib/homeos/pending}"
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
 err()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 need_root() { [ "$(id -u)" -eq 0 ] || err "run with sudo"; }
 
+hash12() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | head -c 12
+  else
+    shasum -a 256 | head -c 12
+  fi
+}
+
 # ---------- audit log ----------
+json_argv() {
+  python3 - "$@" <<'PY'
+import json, sys
+print(json.dumps(sys.argv[1:]))
+PY
+}
+
 audit_log() {
-  # audit_log <command> <verdict> <user_choice> <diff_hash>
+  # audit_log <command> <verdict> <user_choice> <diff_hash> [orig_intent] [diff_text]
   local cmd="$1" verdict="${2:-n/a}" choice="${3:-n/a}" hash="${4:-n/a}"
+  local orig_intent="${5:-$cmd}" diff_text="${6:-}"
+  local sidecar_id=""
   mkdir -p "$(dirname "$AUDIT_LOG")"
-  python3 -c "
-import json, sys, time, os
+  if [ -n "$diff_text" ] && [ "$hash" != "n/a" ]; then
+    mkdir -p "$AUDIT_REPLAY_DIR"
+    chmod 0700 "$AUDIT_REPLAY_DIR"
+    sidecar_id="$(python3 - "$AUDIT_REPLAY_DIR" "$hash" "$cmd" "$orig_intent" "$choice" "$diff_text" "${HOMEOS_ORIGINAL_ARGV_JSON:-[]}" <<'PY'
+import json, os, pathlib, sys, time
+replay_dir = pathlib.Path(sys.argv[1])
+diff_hash, cmd, orig_intent, choice, diff_text, argv_json = sys.argv[2:8]
+try:
+    argv = json.loads(argv_json)
+    if not isinstance(argv, list) or not all(isinstance(x, str) for x in argv):
+        argv = []
+except Exception:
+    argv = []
+base = f"{diff_hash}.json"
+path = replay_dir / base
+if path.exists():
+    stamp = time.strftime("%Y%m%dT%H%M%S")
+    ns = time.time_ns() if hasattr(time, "time_ns") else int(time.time() * 1000000000)
+    base = f"{diff_hash}-{stamp}-{os.getpid()}-{ns}.json"
+    path = replay_dir / base
+payload = {
+    "schema": "homeos.audit-replay.v1",
+    "ts": time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+    "user": os.environ.get('SUDO_USER') or os.environ.get('USER') or 'unknown',
+    "cmd": cmd,
+    "orig_intent": orig_intent,
+    "choice": choice,
+    "diff_hash": diff_hash,
+    "argv": argv,
+    "replay_env": {
+        "HOMEOS_ADMIN_USER": os.environ.get("HOMEOS_ADMIN_USER") or os.environ.get("SUDO_USER") or "admin",
+        "HOMEOS_ADMIN_GROUP": os.environ.get("HOMEOS_ADMIN_GROUP") or os.environ.get("HOMEOS_ADMIN_USER") or os.environ.get("SUDO_USER") or "admin",
+        "HOMEOS_ADMIN_HOME": os.environ.get("HOMEOS_ADMIN_HOME", ""),
+        "HOMEOS_ROOT": os.environ.get("HOMEOS_ROOT", "/opt/homeos"),
+    },
+    "diff_text": diff_text,
+    "redaction": {
+        "public_jsonl_omits": ["argv", "diff_text", "replay_env"],
+        "policy": "secret-bearing argv and replay material are stored only in this root-only sidecar; public JSONL keeps command label, verdict, choice, hash, and sidecar id only",
+    },
+}
+with open(path, "x", encoding="utf-8") as fh:
+    json.dump(payload, fh, sort_keys=True)
+    fh.write("\n")
+os.chmod(path, 0o600)
+print(base)
+PY
+)"
+  fi
+  python3 - "$cmd" "$verdict" "$choice" "$hash" "$sidecar_id" <<'PY' >> "$AUDIT_LOG"
+import json, os, sys, time
+cmd, verdict, choice, diff_hash, sidecar_id = sys.argv[1:6]
 entry = {
   'ts': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
-  'cmd': '$cmd',
+  'cmd': cmd,
   'user': os.environ.get('SUDO_USER') or os.environ.get('USER') or 'unknown',
-  'verdict': '$verdict',
-  'choice': '$choice',
-  'diff_hash': '$hash',
+  'verdict': verdict,
+  'choice': choice,
+  'diff_hash': diff_hash,
 }
-print(json.dumps(entry))
-" >> "$AUDIT_LOG" 2>/dev/null || true
+if sidecar_id:
+  entry['sidecar_id'] = sidecar_id
+print(json.dumps(entry, sort_keys=True))
+PY
+  chmod 0644 "$AUDIT_LOG"
 }
 
 # ---------- AI review gate ----------
@@ -64,8 +137,9 @@ $diff"
 gate() {
   # gate <intent_label> <diff_text> <command...>
   # Runs AI review (warn-only) + audit log around the command.
+  need_root
   local intent="$1" diff="$2"; shift 2
-  local hash; hash="$(printf '%s' "$diff" | sha256sum | head -c 12)"
+  local hash; hash="$(printf '%s' "$diff" | hash12)"
   local verdict="skip"
   if [ "${HOMEOS_NO_REVIEW:-}" = "1" ]; then
     warn "AI review bypassed (HOMEOS_NO_REVIEW=1)"
@@ -83,11 +157,11 @@ gate() {
   if [ -t 0 ] && [ "${HOMEOS_AUTO_APPLY:-}" != "1" ]; then
     read -r -p "apply? [y/N] " ans
     if [[ ! "$ans" =~ ^[Yy]$ ]]; then
-      audit_log "$intent" "$verdict" "abort" "$hash"
+      audit_log "${HOMEOS_REPLAY_AUDIT_CMD:-$intent}" "$verdict" "abort" "$hash" "$intent" "$diff" || err "audit logging failed; aborting without applying"
       err "aborted"
     fi
   fi
-  audit_log "$intent" "$verdict" "apply" "$hash"
+  audit_log "${HOMEOS_REPLAY_AUDIT_CMD:-$intent}" "$verdict" "apply" "$hash" "$intent" "$diff" || err "audit logging failed; refusing to apply"
   "$@"
 }
 
@@ -121,6 +195,8 @@ homeos — HomeOS day-2 ops
   homeos install --list
   homeos audit tail [-n N]                   tail audit log
   homeos audit search <pattern>
+  homeos audit show <id_or_hash>             show public entry; root also sees replay sidecar
+  homeos audit replay <id_or_hash>           replay a prior sidecar through the AI gate
   homeos audit cosmos-events [-n N]          tail Cosmos-origin bypass events
 EOF
 }
@@ -191,14 +267,13 @@ cmd_rerun_bootstrap() {
 
 # ---------- secrets ----------
 secrets_path() {
-  local home; home="$(getent passwd "$ADMIN_USER" | cut -d: -f6)"
-  echo "$home/.config/homeos/secrets.env"
+  echo "$ADMIN_HOME/.config/homeos/secrets.env"
 }
 
 cmd_secrets() {
   local sub="${1:-}"; shift || true
   local f; f="$(secrets_path)"
-  [ -f "$f" ] || install -m 600 -o "$ADMIN_USER" -g "$ADMIN_USER" /dev/null "$f"
+  [ -f "$f" ] || install -m 600 -o "$ADMIN_USER" -g "$ADMIN_GROUP" /dev/null "$f"
   case "$sub" in
     list) sed 's/=.*/=***/' "$f" ;;
     get)  local k="${1:?KEY required}"; grep -E "^$k=" "$f" | head -1 | cut -d= -f2- ;;
@@ -207,9 +282,15 @@ cmd_secrets() {
       local k v
       if [[ "$arg" == *=* ]]; then k="${arg%%=*}"; v="${arg#*=}"; else k="$arg"; v="${2:?VAL required}"; fi
       gate "secrets:set:$k" "set secret key $k (value redacted, length=${#v})" true
-      sed -i "/^${k}=/d" "$f"
+      python3 - "$f" "$k" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+key = sys.argv[2]
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+path.write_text("\n".join(line for line in lines if not line.startswith(key + "=")) + ("\n" if lines else ""), encoding="utf-8")
+PY
       echo "${k}=${v}" >> "$f"
-      chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_USER" "$f"
+      chmod 600 "$f"; chown "$ADMIN_USER:$ADMIN_GROUP" "$f"
       echo "set $k"
       ;;
     *) usage; exit 2 ;;
@@ -272,9 +353,9 @@ cmd_stack() {
   local dir="/opt/stacks/$name"
   [ -d "$dir" ] || err "no stack at $dir"
   case "$sub" in
-    up)     gate "stack:up:$name"     "compose up at $dir"            sh -c "cd '$dir' && docker compose up -d" ;;
-    down)   gate "stack:down:$name"   "compose down at $dir"          sh -c "cd '$dir' && docker compose down" ;;
-    update) gate "stack:update:$name" "compose pull+recreate at $dir" sh -c "cd '$dir' && docker compose pull && docker compose up -d" ;;
+    up)     gate "stack:up:$name"     "compose up at $dir"            bash -c 'cd "$1" && docker compose up -d' _ "$dir" ;;
+    down)   gate "stack:down:$name"   "compose down at $dir"          bash -c 'cd "$1" && docker compose down' _ "$dir" ;;
+    update) gate "stack:update:$name" "compose pull+recreate at $dir" bash -c 'cd "$1" && docker compose pull && docker compose up -d' _ "$dir" ;;
     logs)   (cd "$dir" && docker compose logs -f) ;;
     *) usage; exit 2 ;;
   esac
@@ -417,6 +498,48 @@ cmd_gate() {
 }
 
 # ---------- audit ----------
+audit_resolve_sidecar() {
+  # audit_resolve_sidecar <id_or_hash> -> prints: <line_no> TAB <sidecar_path> TAB <orig_cmd>
+  local selector="${1:?id_or_hash required}"
+  python3 - "$AUDIT_LOG" "$AUDIT_REPLAY_DIR" "$selector" <<'PY'
+import json, pathlib, sys
+log_path = pathlib.Path(sys.argv[1])
+replay_dir = pathlib.Path(sys.argv[2])
+selector = sys.argv[3]
+if not log_path.exists():
+    print("no audit entries yet", file=sys.stderr)
+    sys.exit(3)
+entries = []
+with log_path.open(encoding="utf-8") as fh:
+    for lineno, raw in enumerate(fh, 1):
+        try:
+            entry = json.loads(raw)
+        except Exception:
+            continue
+        entries.append((lineno, entry))
+matches = []
+if selector.isdigit():
+    wanted = int(selector)
+    matches.extend((lineno, entry) for lineno, entry in entries if lineno == wanted)
+matches.extend((lineno, entry) for lineno, entry in entries if entry.get("diff_hash") == selector or entry.get("sidecar_id") == selector)
+seen = set()
+matches = [(lineno, entry) for lineno, entry in matches if not (lineno in seen or seen.add(lineno))]
+if not matches:
+    print(f"no audit entry matches {selector}", file=sys.stderr)
+    sys.exit(3)
+if len(matches) > 1:
+    ids = ", ".join(str(lineno) for lineno, _ in matches)
+    print(f"ambiguous audit selector {selector}; use one of these line-number IDs: {ids}", file=sys.stderr)
+    sys.exit(4)
+lineno, entry = matches[0]
+sidecar_id = entry.get("sidecar_id") or (str(entry.get("diff_hash", "")) + ".json")
+sidecar_id = pathlib.PurePath(sidecar_id).name
+sidecar_path = replay_dir / sidecar_id
+orig_cmd = str(entry.get("cmd", ""))
+print(f"{lineno}\t{sidecar_path}\t{orig_cmd}")
+PY
+}
+
 cmd_audit() {
   local sub="${1:-tail}"; shift || true
   case "$sub" in
@@ -438,6 +561,105 @@ for line in sys.stdin:
       local pat="${1:?pattern required}"
       [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
       grep -i -- "$pat" "$AUDIT_LOG" || true
+      ;;
+    show)
+      local selector="${1:?id_or_hash required}"
+      [ -f "$AUDIT_LOG" ] || { echo "no audit entries yet"; return 0; }
+      python3 - "$AUDIT_LOG" "$AUDIT_REPLAY_DIR" "$selector" "$(id -u)" <<'PY'
+import json, pathlib, sys
+log_path = pathlib.Path(sys.argv[1])
+replay_dir = pathlib.Path(sys.argv[2])
+selector = sys.argv[3]
+is_root = sys.argv[4] == "0"
+lines = []
+with log_path.open(encoding="utf-8") as fh:
+    for lineno, raw in enumerate(fh, 1):
+        try:
+            entry = json.loads(raw)
+        except Exception:
+            continue
+        lines.append((lineno, raw.rstrip("\n"), entry))
+matches = []
+if selector.isdigit():
+    wanted = int(selector)
+    matches.extend(item for item in lines if item[0] == wanted)
+matches.extend(item for item in lines if item[2].get("diff_hash") == selector or item[2].get("sidecar_id") == selector)
+seen = set()
+matches = [item for item in matches if not (item[0] in seen or seen.add(item[0]))]
+if not matches:
+    print(f"no audit entry matches {selector}", file=sys.stderr)
+    sys.exit(3)
+if len(matches) > 1:
+    ids = ", ".join(str(item[0]) for item in matches)
+    print(f"ambiguous audit selector {selector}; use one of these line-number IDs: {ids}", file=sys.stderr)
+    sys.exit(4)
+lineno, raw, entry = matches[0]
+print(f"audit[{lineno}]: {raw}")
+sidecar_id = entry.get("sidecar_id") or (str(entry.get("diff_hash", "")) + ".json")
+sidecar_id = pathlib.PurePath(sidecar_id).name
+sidecar_path = replay_dir / sidecar_id
+if not is_root:
+    print("sidecar: root-only (run sudo homeos audit show to inspect replay payload)")
+elif not sidecar_path.exists():
+    print(f"sidecar: missing or pruned ({sidecar_id})")
+else:
+    try:
+        payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        print("sidecar:")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    except Exception as exc:
+        print(f"sidecar: unreadable ({exc})", file=sys.stderr)
+        sys.exit(5)
+PY
+      ;;
+    replay)
+      local selector="${1:?id_or_hash required}"
+      local resolved line_no sidecar_path orig_cmd argv_file env_file replay_cmd
+      resolved="$(audit_resolve_sidecar "$selector")" || return $?
+      line_no="${resolved%%$'\t'*}"
+      replay_cmd="${resolved##*$'\t'}"
+      sidecar_path="${resolved#*$'\t'}"
+      sidecar_path="${sidecar_path%$'\t'*}"
+      if [ "$(id -u)" -ne 0 ] && [ ! -r "$sidecar_path" ]; then
+        err "audit replay sidecar is root-only; run with sudo"
+      fi
+      [ -f "$sidecar_path" ] || err "audit replay sidecar missing or pruned for audit[$line_no]: $sidecar_path"
+      [ -r "$sidecar_path" ] || err "audit replay sidecar is root-only; run with sudo"
+      argv_file="$(mktemp)"
+      python3 - "$sidecar_path" > "$argv_file" <<'PY'
+import json, pathlib, sys
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+argv = payload.get("argv")
+if not isinstance(argv, list) or not all(isinstance(x, str) for x in argv):
+    print("sidecar has no replayable argv", file=sys.stderr)
+    sys.exit(6)
+if len(argv) >= 2 and argv[0] == "audit" and argv[1] == "replay":
+    print("refusing to replay an audit replay command", file=sys.stderr)
+    sys.exit(7)
+sys.stdout.buffer.write(b"\0".join(x.encode() for x in argv) + b"\0")
+PY
+      env_file="$(mktemp)"
+      python3 - "$sidecar_path" > "$env_file" <<'PY'
+import json, pathlib, sys
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+replay_env = payload.get("replay_env", {})
+allowed = ["HOMEOS_ADMIN_USER", "HOMEOS_ADMIN_GROUP", "HOMEOS_ADMIN_HOME", "HOMEOS_ROOT"]
+out = []
+for key in allowed:
+    val = replay_env.get(key)
+    if isinstance(val, str) and val:
+        out.append(f"{key}={val}".encode())
+sys.stdout.buffer.write(b"\0".join(out) + (b"\0" if out else b""))
+PY
+      local replay_argv=() replay_env=()
+      while IFS= read -r -d '' arg; do replay_argv+=("$arg"); done < "$argv_file"
+      while IFS= read -r -d '' kv; do replay_env+=("$kv"); done < "$env_file"
+      rm -f "$argv_file" "$env_file"
+      [ "${#replay_argv[@]}" -gt 0 ] || err "sidecar has empty replay argv"
+      env -u HOMEOS_NO_REVIEW \
+        HOMEOS_REPLAY_AUDIT_CMD="audit:replay:$replay_cmd" \
+        "${replay_env[@]}" \
+        "$0" "${replay_argv[@]}"
       ;;
     cosmos-events)
       local n=20
@@ -524,6 +746,8 @@ cmd_secure() {
 
 # ---------- dispatch ----------
 main() {
+  HOMEOS_ORIGINAL_ARGV_JSON="$(json_argv "$@")"
+  export HOMEOS_ORIGINAL_ARGV_JSON
   local top="${1:-}"; shift || true
   case "$top" in
     status)  cmd_status "$@" ;;

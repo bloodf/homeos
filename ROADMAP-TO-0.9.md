@@ -52,39 +52,39 @@ Goal: implement root-only replay payload sidecars and CLI commands to show/repla
 
 ### Audit data model
 
-- [ ] Extend `audit_log()` so mutating CLI commands write redacted JSONL entries as before and also write a root-only sidecar payload under `/var/lib/homeos/audit-replay/<diff_hash>.json`.
-- [ ] Sidecar files are mode `0600`, root-owned, and directory is root-only enough to protect secret-bearing replay material.
-- [ ] Sidecar payload includes original command intent, original argv, replay-safe environment needed for the command, timestamp, user, diff hash, and redaction metadata.
-- [ ] Sidecar payload does not accidentally expose secret values in the public JSONL audit line.
-- [ ] Define how duplicate `diff_hash` values are handled safely, either by including a unique suffix in sidecar storage or by proving hash collision risk is acceptable for this CLI scope.
+- [x] Extend `audit_log()` so mutating CLI commands write redacted JSONL entries as before and also write a root-only sidecar payload under `/var/lib/homeos/audit-replay/<diff_hash>.json` — evidence: `audit_log()` writes `sidecar_id`, temp harness verified public JSONL plus sidecar, 2026-05-01.
+- [x] Sidecar files are mode `0600`, root-owned, and directory is root-only enough to protect secret-bearing replay material — evidence: Ansible creates `/var/lib/homeos/audit-replay` as root `0700`, writer chmods sidecars `0600`, gated mutators require root/fail closed on audit write failure, harness verified modes, 2026-05-01.
+- [x] Sidecar payload includes original command intent, original argv, replay-safe environment needed for the command, timestamp, user, diff hash, and redaction metadata — evidence: sidecar schema `homeos.audit-replay.v1` includes these fields, 2026-05-01.
+- [x] Sidecar payload does not accidentally expose secret values in the public JSONL audit line — evidence: `secrets:set` harness checked secret value absent from public JSONL before/after replay, 2026-05-01.
+- [x] Define how duplicate `diff_hash` values are handled safely, either by including a unique suffix in sidecar storage or by proving hash collision risk is acceptable for this CLI scope — evidence: duplicate sidecars get unique suffixed `sidecar_id`; ambiguous bare hashes refuse with line-number guidance, 2026-05-01.
 
 ### CLI commands
 
-- [ ] Implement `homeos audit show <id_or_hash>`.
-- [ ] `audit show` resolves line-number IDs and diff hashes.
-- [ ] `audit show` prints the public JSONL entry for all users allowed to read audit logs.
-- [ ] `audit show` reveals sidecar payload only for root; non-root gets a clear refusal for sidecar content.
-- [ ] Implement `homeos audit replay <id_or_hash>`.
-- [ ] `audit replay` resolves line-number IDs and diff hashes to sidecar files.
-- [ ] `audit replay` refuses with a clear error if the sidecar is missing or pruned.
-- [ ] `audit replay` reruns the original intent through the gate, so the reviewer sees it again.
-- [ ] `audit replay` writes a new audit entry with `cmd: "audit:replay:<orig_cmd>"`.
-- [ ] Confirm replay works for `secrets:set` without leaking secret values into the public JSONL line.
+- [x] Implement `homeos audit show <id_or_hash>` — evidence: `cmd_audit show` added and temp harness exercised line ID lookup, 2026-05-01.
+- [x] `audit show` resolves line-number IDs and diff hashes — evidence: resolver supports line IDs plus numeric/non-numeric `diff_hash`/`sidecar_id`, ambiguity path tested, 2026-05-01.
+- [x] `audit show` prints the public JSONL entry for all users allowed to read audit logs — evidence: temp harness output included raw public `audit[1]` JSONL, 2026-05-01.
+- [x] `audit show` reveals sidecar payload only for root; non-root gets a clear refusal for sidecar content — evidence: non-root harness saw `sidecar: root-only`; root path gates on `id -u`, 2026-05-01.
+- [x] Implement `homeos audit replay <id_or_hash>` — evidence: `cmd_audit replay` added and temp harness replayed `secrets:set`, 2026-05-01.
+- [x] `audit replay` resolves line-number IDs and diff hashes to sidecar files — evidence: shared resolver maps numeric IDs and unique hashes to `sidecar_id` paths, 2026-05-01.
+- [x] `audit replay` refuses with a clear error if the sidecar is missing or pruned — evidence: replay checks sidecar existence/readability and reports missing/pruned path, 2026-05-01.
+- [x] `audit replay` reruns the original intent through the gate, so the reviewer sees it again — evidence: replay re-execs stored argv with `HOMEOS_NO_REVIEW` unset and original gate intent preserved, 2026-05-01.
+- [x] `audit replay` writes a new audit entry with `cmd: "audit:replay:<orig_cmd>"` — evidence: temp harness verified `audit:replay:secrets:set:TEST_SECRET` JSONL entry, 2026-05-01.
+- [x] Confirm replay works for `secrets:set` without leaking secret values into the public JSONL line — evidence: temp harness replayed `TEST_SECRET=supersecret` and grepped public JSONL for absence of the value, 2026-05-01.
 
 ### Retention and pruning
 
-- [ ] Add `homeos-audit-prune.service` to prune sidecars older than 90 days.
-- [ ] Add `homeos-audit-prune.timer` and enable it from the appropriate Ansible role.
-- [ ] Prune implementation is safe if `/var/lib/homeos/audit-replay` is missing or empty.
-- [ ] Document that JSONL audit retention remains 10 years while replay sidecars retain 90 days.
+- [x] Add `homeos-audit-prune.service` to prune sidecars older than 90 days — evidence: Ansible installs systemd service running `/usr/local/sbin/homeos-audit-prune`, 2026-05-01.
+- [x] Add `homeos-audit-prune.timer` and enable it from the appropriate Ansible role — evidence: `homeos-cli` role installs/enables daily persistent timer with daemon reload, 2026-05-01.
+- [x] Prune implementation is safe if `/var/lib/homeos/audit-replay` is missing or empty — evidence: helper exits 0 when directory is absent; harness exercised missing directory, 2026-05-01.
+- [x] Document that JSONL audit retention remains 10 years while replay sidecars retain 90 days — evidence: `docs/AI-GATE.md`, `docs/DAY2.md`, README, and v0.6.0 notes updated, 2026-05-01.
 
 ### Completion and docs
 
-- [ ] Update `docs/AI-GATE.md` with replay flow, root-only show behavior, retention, and examples.
-- [ ] Update `docs/DAY2.md` CLI reference for `audit show` and `audit replay`.
-- [ ] Update completions for bash and zsh.
-- [ ] Create `release-notes/v0.6.0.md`.
-- [ ] Static validation passes: shell syntax, YAML parsing, targeted audit/replay harness with temp paths.
+- [x] Update `docs/AI-GATE.md` with replay flow, root-only show behavior, retention, and examples — evidence: replay/show section and retention text added, 2026-05-01.
+- [x] Update `docs/DAY2.md` CLI reference for `audit show` and `audit replay` — evidence: `homeos audit` reference added, 2026-05-01.
+- [x] Update completions for bash and zsh — evidence: `show` and `replay` added to bash/zsh audit completions, 2026-05-01.
+- [x] Create `release-notes/v0.6.0.md` — evidence: release notes file added with scope, retention, secret handling, and validation notes, 2026-05-01.
+- [x] Static validation passes: shell syntax, YAML parsing, targeted audit/replay harness with temp paths — evidence: `bash -n`, PyYAML parse, audit_log sidecar harness, non-root mutator refusal, numeric-hash resolution, and prune harness passed without QEMU, 2026-05-01.
 - [ ] Orchestrator: commit, tag `v0.6.0`, push, publish release, and watch CI. No worker does this.
 
 ## v0.7.0 — Bootstrap fixes

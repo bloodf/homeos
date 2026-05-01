@@ -75,7 +75,7 @@ homeos status                      # services, disks, containers, GPU, tailscale
 homeos doctor                      # full smoke test (exits non-zero if any check fails)
 homeos secure                      # lock admin password + disable SSH password auth
 homeos config rerun-bootstrap      # re-run the Ansible playbook
-homeos config secrets set KEY=VAL  # write secrets.env (sourced by zsh)
+sudo homeos config secrets set KEY=VAL  # write secrets.env (sourced by zsh)
 homeos config secrets list / get
 homeos config nas add /dev/sdc1    # mount + share a USB drive
 homeos config nas list / remove
@@ -86,8 +86,14 @@ homeos config net caddy-reload
 homeos config backup target set /srv/nas/backups
 homeos config backup run
 homeos config cosmos on|off|status
-homeos audit tail|search|cosmos-events
+homeos audit tail|search|show|replay|cosmos-events
 ```
+
+Gated mutating CLI commands require `sudo`, write redacted public JSONL to
+`/var/log/homeos-audit.jsonl`, and write root-only replay sidecars to
+`/var/lib/homeos/audit-replay/` for 90 days. Use `homeos audit show <id_or_hash>`
+to inspect an entry and `sudo homeos audit replay <id_or_hash>` to re-run its
+stored argv through the AI gate.
 
 Cosmos runs through `/var/run/cosmos-docker.sock`, a HomeOS Docker API shim
 that forwards to Docker and records mutating UI actions as

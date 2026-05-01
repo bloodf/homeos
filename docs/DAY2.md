@@ -79,8 +79,8 @@ Stores secrets in `~admin/.config/homeos/secrets.env` (mode 600). Sourced by
 `~admin/.zshrc` on every interactive shell.
 
 ```
-homeos config secrets set ANTHROPIC_API_KEY=sk-ant-...
-homeos config secrets set OPENAI_API_KEY=sk-...
+sudo homeos config secrets set ANTHROPIC_API_KEY=<anthropic-key>
+sudo homeos config secrets set OPENAI_API_KEY=<openai-key>
 homeos config secrets get ANTHROPIC_API_KEY
 homeos config secrets list                   # keys only, no values
 homeos config secrets unset OPENAI_API_KEY
@@ -200,14 +200,41 @@ cosmos on` starts `homeos-cosmos-docker-shim.service` before
 for boot. The legacy v0.4 log-tail audit service is disabled to avoid duplicate
 events.
 
+## `homeos audit`
+
+Audit commands inspect the public redacted JSONL log and, for root, the
+short-lived replay sidecars for mutating CLI commands.
+
+```bash
+homeos audit tail                 # last 20 public entries
+homeos audit tail -n 100
+homeos audit search portal
+homeos audit show 42              # public line 42; root also sees sidecar JSON
+homeos audit show a1b2c3d4e5f6     # by unique diff hash
+sudo homeos audit replay 42       # re-run saved argv through the AI gate
+homeos audit cosmos-events
+```
+
+`audit show` accepts either a line-number ID or a unique `diff_hash`. Non-root
+users see the public JSONL entry and a clear root-only refusal for sidecar
+content. Root sees the sidecar payload, including original argv and redaction
+metadata.
+
+`audit replay` uses the sidecar to re-execute the original `homeos` argv through
+the normal gate. The follow-up audit line is recorded as
+`audit:replay:<orig_cmd>`. If the sidecar was pruned or a hash is ambiguous,
+replay refuses and asks for a line-number ID or reports the missing sidecar.
+Public JSONL retention remains 10 years; replay sidecars are pruned after 90
+days by `homeos-audit-prune.timer`.
+
 ## Re-runnable semantics
 
 Every command is safe to run twice:
 
-| Command                           | Twice =                                  |
-| --------------------------------- | ---------------------------------------- |
-| `homeos config nas add /dev/sdc1` | no-op (drive already in `nas_disks.yml`) |
-| `homeos config stack up jellyfin` | no-op (already running)                  |
-| `homeos config secrets set K=V`   | overwrites existing value                |
-| `homeos config rerun-bootstrap`   | full idempotent reapply                  |
-| `homeos secure`                   | no-op (password already locked)          |
+| Command                              | Twice =                                          |
+| ------------------------------------ | ------------------------------------------------ |
+| `homeos config nas add /dev/sdc1`    | no-op (drive already in `nas_disks.yml`)         |
+| `homeos config stack up jellyfin`    | no-op (already running)                          |
+| `sudo homeos config secrets set K=V` | overwrites existing value through the audit gate |
+| `homeos config rerun-bootstrap`      | full idempotent reapply                          |
+| `homeos secure`                      | no-op (password already locked)                  |

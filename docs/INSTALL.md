@@ -195,10 +195,10 @@ See [NAS.md](NAS.md) for the full workflow.
 ## 9. Configure secrets for AI CLIs
 
 ```bash
-homeos config secrets set ANTHROPIC_API_KEY=sk-ant-...
-homeos config secrets set OPENAI_API_KEY=sk-...
-homeos config secrets set GOOGLE_API_KEY=...
-homeos config secrets set CURSOR_API_KEY=...
+sudo homeos config secrets set ANTHROPIC_API_KEY=<anthropic-key>
+sudo homeos config secrets set OPENAI_API_KEY=<openai-key>
+sudo homeos config secrets set GOOGLE_API_KEY=<google-key>
+sudo homeos config secrets set CURSOR_API_KEY=<cursor-key>
 # etc.
 ```
 

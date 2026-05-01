@@ -139,7 +139,7 @@ sudo homeos config rerun-bootstrap   # if missing
 
 ```bash
 homeos config secrets list
-homeos config secrets set ANTHROPIC_API_KEY=sk-ant-...
+sudo homeos config secrets set ANTHROPIC_API_KEY=<anthropic-key>
 sudo homeos config portal off && sudo homeos config portal on
 ```
 
