@@ -24,7 +24,7 @@
   ansible.builtin.shell: |
     set -e
     if ! command -v {{ item.name }} >/dev/null 2>&1; then
-      curl -fsSL {{ item.url }} | {{ item.shell }}
+      curl {{ item.curl_flags | default('-fsSL') }} {{ item.url }} | {{ item.shell }}
     fi
   args:
     executable: /bin/bash
@@ -39,8 +39,9 @@
     name: "{{ item }}"
     state: present
   become_user: "{{ admin_user }}"
-  loop: "{{ ai_clis_pipx }}"
-  failed_when: false   # kimi upstream package name uncertain; do not block bootstrap
+  loop: "{{ ai_clis_pipx | default([]) }}"
+  when: (ai_clis_pipx | default([])) | length > 0
+  failed_when: false
 
 - name: Smoke-test installed AI CLIs
   ansible.builtin.shell: |

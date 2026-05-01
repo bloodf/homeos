@@ -23,10 +23,10 @@ ai_clis_brew:
   - { tap: "sst/tap",        formula: "opencode" }
 
 ai_clis_curl:
-  - { name: "cursor-agent", url: "https://cursor.com/install", shell: "bash" }
+  - { name: "cursor-agent", url: "https://cursor.com/install",      shell: "bash", curl_flags: "-fsS" }
+  - { name: "kimi",         url: "https://code.kimi.com/install.sh", shell: "bash", curl_flags: "-fsSL" }
 
-ai_clis_pipx:
-  - "kimi-cli"   # confirm Moonshot upstream package name at build
+ai_clis_pipx: []
 
 # GitHub tools — clone + build under /opt/tools/<name>
 github_tools:
