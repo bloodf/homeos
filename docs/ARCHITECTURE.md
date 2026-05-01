@@ -38,7 +38,7 @@ look when things go wrong.
 │   ExecStart:    ansible-playbook -i localhost, -c local         │
 │                 /opt/homeos/bootstrap/install.yml               │
 │                                                                 │
-│   • runs 18 roles in order (see BOOTSTRAP.md)                   │
+│   • runs roles in order (see BOOTSTRAP.md)                   │
 │   • logs to /var/log/homeos-bootstrap.log                       │
 │   • on success: touch /var/lib/homeos/bootstrapped              │
 │                 systemctl disable homeos-firstboot.service      │
@@ -53,13 +53,13 @@ look when things go wrong.
 
 ## Why three stages
 
-| Concern | Solution | Why not the obvious alternative |
-|---|---|---|
-| Reproducible install image | Stage A (preseed ISO) | An "install Debian, then run a script" approach loses reproducibility — the install order matters for partition layout. |
-| Unattended | Preseed answers + auto-boot grub/isolinux | Cloud-init doesn't apply: cloud-init runs *after* install. We need answers *during* install. |
-| First-boot heavy lifting | Stage B (Ansible) | Doing it in `late_command` would block reboot for 30 min and run with no network if cdrom is the only mount. |
-| Idempotent reconfig | Ansible playbook | Shell scripts make this hard — Ansible's `state: present` semantics mean `homeos config rerun-bootstrap` is safe to run anytime. |
-| Day-2 ergonomics | Stage C (`homeos` CLI) | Forcing operators to remember Ansible role tags is hostile. The CLI hides the playbook behind verbs they actually use. |
+| Concern                    | Solution                                  | Why not the obvious alternative                                                                                                  |
+| -------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Reproducible install image | Stage A (preseed ISO)                     | An "install Debian, then run a script" approach loses reproducibility — the install order matters for partition layout.          |
+| Unattended                 | Preseed answers + auto-boot grub/isolinux | Cloud-init doesn't apply: cloud-init runs _after_ install. We need answers _during_ install.                                     |
+| First-boot heavy lifting   | Stage B (Ansible)                         | Doing it in `late_command` would block reboot for 30 min and run with no network if cdrom is the only mount.                     |
+| Idempotent reconfig        | Ansible playbook                          | Shell scripts make this hard — Ansible's `state: present` semantics mean `homeos config rerun-bootstrap` is safe to run anytime. |
+| Day-2 ergonomics           | Stage C (`homeos` CLI)                    | Forcing operators to remember Ansible role tags is hostile. The CLI hides the playbook behind verbs they actually use.           |
 
 ## Stage A — repack-iso.sh internals
 
@@ -91,26 +91,26 @@ xorriso -as mkisofs ... -o $OUT $EXTRACT
 
 ### Why not `simple-cdd`, `live-build`, or `debian-cd`
 
-These tools are for *building distributions* — they assume you have a Debian
-mirror and want to assemble a custom CD/DVD image. We want to *modify* an
+These tools are for _building distributions_ — they assume you have a Debian
+mirror and want to assemble a custom CD/DVD image. We want to _modify_ an
 upstream netinst ISO with three small changes (preseed, boot config, payload).
 `xorriso` does that in 50 lines and 90 seconds.
 
 ## Preseed.cfg — what it answers
 
-| Section | What | Why this choice |
-|---|---|---|
-| Locale | `en_US.UTF-8` | Default for tooling compatibility |
-| Keyboard | `us` | Owner preference |
-| Time | `America/Sao_Paulo` | Owner location (Brazil) |
-| Network | DHCP, hostname `homeos` | Home networks have a DHCP server |
-| Mirror | `deb.debian.org` (mirror chooser) | Apt picks a fast mirror automatically |
-| Root | disabled | Root login forbidden, sudo-only |
-| User | `admin`, default password `homeos`, expired | Public-distro fallback |
-| Disk 1 | LVM `vg0/root` with `/boot` ext4 | Headless box doesn't need encryption |
-| Disk 2 | created in `late_command` (vg1: swap + cache) | preseed only handles one disk recipe |
-| Tasks | `standard, ssh-server` | Smallest footprint that boots + lets us SSH |
-| Packages | `openssh-server curl ca-certificates gnupg git ansible sudo lvm2 cryptsetup parted rsync` | Minimum to run Stage B |
+| Section  | What                                                                                      | Why this choice                             |
+| -------- | ----------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Locale   | `en_US.UTF-8`                                                                             | Default for tooling compatibility           |
+| Keyboard | `us`                                                                                      | Owner preference                            |
+| Time     | `America/Sao_Paulo`                                                                       | Owner location (Brazil)                     |
+| Network  | DHCP, hostname `homeos`                                                                   | Home networks have a DHCP server            |
+| Mirror   | `deb.debian.org` (mirror chooser)                                                         | Apt picks a fast mirror automatically       |
+| Root     | disabled                                                                                  | Root login forbidden, sudo-only             |
+| User     | `admin`, default password `homeos`, expired                                               | Public-distro fallback                      |
+| Disk 1   | LVM `vg0/root` with `/boot` ext4                                                          | Headless box doesn't need encryption        |
+| Disk 2   | created in `late_command` (vg1: swap + cache)                                             | preseed only handles one disk recipe        |
+| Tasks    | `standard, ssh-server`                                                                    | Smallest footprint that boots + lets us SSH |
+| Packages | `openssh-server curl ca-certificates gnupg git ansible sudo lvm2 cryptsetup parted rsync` | Minimum to run Stage B                      |
 
 `late_command` runs as the last step of the installer. Ours:
 
@@ -125,13 +125,13 @@ upstream netinst ISO with three small changes (preseed, boot config, payload).
 
 ## Stage B — Ansible playbook
 
-`bootstrap/install.yml` is a single-play, single-host playbook. 18 roles run
+`bootstrap/install.yml` is a single-play, single-host playbook. Roles run
 in order:
 
 ```
 base → ssh → shell → docker → node → brew → gpu-intel → ai-clis →
-github-tools → tailscale → cockpit → casaos → caddy → stacks → nas →
-backups → homeos-cli → firstboot
+github-tools → tailscale → cockpit → casaos → caddy → stacks → portal →
+cosmos → nas → backups → homeos-cli → firstboot
 ```
 
 Each role's `tasks/main.yml` is idempotent. Re-running the play is safe and
@@ -160,6 +160,7 @@ A single-file bash script at `/usr/local/bin/homeos`. Subcommand dispatcher.
 See [DAY2.md](DAY2.md) for full reference.
 
 Design rules:
+
 - **No state of its own.** Every operation either edits a file Ansible
   manages or invokes a service. There's no separate config DB.
 - **Re-runnable.** Calling `homeos config nas add` twice is a no-op. Calling
@@ -167,14 +168,30 @@ Design rules:
 - **Verbose.** It prints every command it runs, so you can read the
   implementation without the source code.
 
+## Cosmos Docker socket shim
+
+Cosmos needs Docker API access for its container UI. HomeOS does not mount the
+real `/var/run/docker.sock` into Cosmos directly. The `cosmos` role installs
+`homeos-cosmos-docker-shim.service`, which listens on
+`/var/run/cosmos-docker.sock` and forwards to the real Docker socket. The Cosmos
+compose file mounts the shim socket as `/var/run/docker.sock`.
+
+The shim parses repeated non-streaming HTTP request/response pairs on each
+Unix-socket connection. Mutating Docker API methods (`POST`, `PUT`, `PATCH`,
+`DELETE`) write a redacted audit entry (`cmd=cosmos:docker:<METHOD>`,
+`verdict=BYPASS`); request bodies are not logged. Large uploads, streaming
+endpoints, unbounded responses, and Docker hijack/upgrade requests are audited
+from the already-buffered bytes and then relayed raw in both directions so those
+Docker APIs keep working without buffering the full stream.
+
 ## Networking model
 
 Two trust zones:
 
-| Zone | What's allowed | Cert source |
-|---|---|---|
-| LAN (`eth0`) | UFW-allowed ports only (SSH, HTTP, HTTPS, NAS, web UIs) | self-signed / none |
-| Tailnet (`tailscale0`) | everything | Tailscale ACME-equivalent |
+| Zone                   | What's allowed                                          | Cert source               |
+| ---------------------- | ------------------------------------------------------- | ------------------------- |
+| LAN (`eth0`)           | UFW-allowed ports only (SSH, HTTP, HTTPS, NAS, web UIs) | self-signed / none        |
+| Tailnet (`tailscale0`) | everything                                              | Tailscale ACME-equivalent |
 
 Caddy listens on `:80` and `:443`. For LAN access, hit the IP directly on
 the service port. For tailnet access, use the per-service hostname:
@@ -190,17 +207,18 @@ gives you DNS + valid TLS for free.
 
 ## Storage model
 
-| Mount | Layout | Comments |
-|---|---|---|
-| `/` | LVM `vg0/root` ext4 | Most of Disk 1. Caches OS, /opt/stacks, /srv |
-| `/boot` | `/dev/sda1` ext4 1 GB | Required for legacy BIOS + simpler than ESP |
-| swap | LVM `vg1/swap` (16 GB) | Disk 2, dedicated VG |
-| cache | LVM `vg1/cache` attached to `vg0/root` via `lvconvert --type cache` | Speeds up the OS volume — only attached if Disk 2 exists |
-| `/srv/nas/<label>` | USB drives, UUID-pinned `systemd.mount` | `nofail`, never blocks boot |
-| `/srv/<service>` | bind-mount targets for Docker stacks | Lives on `/` |
+| Mount              | Layout                                                              | Comments                                                 |
+| ------------------ | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| `/`                | LVM `vg0/root` ext4                                                 | Most of Disk 1. Caches OS, /opt/stacks, /srv             |
+| `/boot`            | `/dev/sda1` ext4 1 GB                                               | Required for legacy BIOS + simpler than ESP              |
+| swap               | LVM `vg1/swap` (16 GB)                                              | Disk 2, dedicated VG                                     |
+| cache              | LVM `vg1/cache` attached to `vg0/root` via `lvconvert --type cache` | Speeds up the OS volume — only attached if Disk 2 exists |
+| `/srv/nas/<label>` | USB drives, UUID-pinned `systemd.mount`                             | `nofail`, never blocks boot                              |
+| `/srv/<service>`   | bind-mount targets for Docker stacks                                | Lives on `/`                                             |
 
 USB drives are **never** repartitioned by HomeOS. We expect them
 pre-formatted with labels. `homeos config nas add /dev/sdcN`:
+
 1. Reads UUID + label via `blkid`.
 2. Appends to `bootstrap/vars/nas_disks.yml`.
 3. Re-runs the `nas` role (writes a `srv-nas-<label>.mount` unit).
@@ -208,18 +226,18 @@ pre-formatted with labels. `homeos config nas add /dev/sdcN`:
 
 ## Build provenance
 
-| Item | Pinned | Verified |
-|---|---|---|
-| Debian netinst | version `13.4.0` in `download-base-iso.sh` | SHA256 vs official `SHA256SUMS` |
-| Builder image | `debian:trixie-slim` | by-digest possible, currently by tag |
-| Node | `node_major: "24"` in vars/main.yml | NodeSource signed apt repo |
-| Docker | upstream apt repo | Docker Inc. signed apt repo |
-| Tailscale | `pkgs.tailscale.com` | Tailscale signed apt repo |
-| Caddy | Cloudsmith stable | Cloudsmith signed apt repo |
-| CasaOS | `casaos_version` in vars/main.yml | upstream installer |
-| GitHub tools | commit SHA per repo, refreshed via `make pin-tools` | git via HTTPS |
-| AI CLIs (npm) | latest at install time | npm registry |
-| AI CLIs (curl) | upstream installer URL | TLS only |
+| Item           | Pinned                                              | Verified                             |
+| -------------- | --------------------------------------------------- | ------------------------------------ |
+| Debian netinst | version `13.4.0` in `download-base-iso.sh`          | SHA256 vs official `SHA256SUMS`      |
+| Builder image  | `debian:trixie-slim`                                | by-digest possible, currently by tag |
+| Node           | `node_major: "24"` in vars/main.yml                 | NodeSource signed apt repo           |
+| Docker         | upstream apt repo                                   | Docker Inc. signed apt repo          |
+| Tailscale      | `pkgs.tailscale.com`                                | Tailscale signed apt repo            |
+| Caddy          | Cloudsmith stable                                   | Cloudsmith signed apt repo           |
+| CasaOS         | `casaos_version` in vars/main.yml                   | upstream installer                   |
+| GitHub tools   | commit SHA per repo, refreshed via `make pin-tools` | git via HTTPS                        |
+| AI CLIs (npm)  | latest at install time                              | npm registry                         |
+| AI CLIs (curl) | upstream installer URL                              | TLS only                             |
 
 `make pin-tools` calls the GitHub API to fetch the current `HEAD` SHA for
 each entry in `github_tools` and rewrites the `ref:` values in

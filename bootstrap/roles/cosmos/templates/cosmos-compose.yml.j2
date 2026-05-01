@@ -5,7 +5,9 @@ services:
   cosmos:
     image: azukaar/cosmos-server:latest
     container_name: cosmos
-    restart: unless-stopped
+    # Boot ordering is owned by homeos-cosmos.service so the Docker socket shim
+    # is available before the container bind-mounts it.
+    restart: "on-failure:3"
     network_mode: host
     privileged: true
     environment:
@@ -14,6 +16,6 @@ services:
       COSMOS_HOSTNAME: "cosmos.{{ tailnet_host }}"
       COSMOS_LOG_LEVEL: "INFO"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/cosmos-docker.sock:/var/run/docker.sock
       - /srv/cosmos/config:/config
       - /srv/cosmos/data:/data

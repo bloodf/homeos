@@ -37,17 +37,17 @@ Provider stored in `/var/lib/homeos/ai-gate-provider`. Keys come from
 
 ## What's gated
 
-| Command                              | Gated?                         |
-| ------------------------------------ | ------------------------------ |
-| `homeos config rerun-bootstrap`      | yes                            |
-| `homeos config portal on/off`        | yes                            |
-| `homeos install <anything>`          | yes                            |
-| `homeos config nas add/remove`       | yes                            |
-| `homeos config secrets set`          | yes (value redacted from diff) |
-| `homeos config stack up/down/update` | yes                            |
-| `homeos config cosmos on/off`        | yes                            |
-| `homeos status / doctor / audit`     | no (read-only)                 |
-| Cosmos UI Docker actions             | bypass-warn audit mirror       |
+| Command                              | Gated?                           |
+| ------------------------------------ | -------------------------------- |
+| `homeos config rerun-bootstrap`      | yes                              |
+| `homeos config portal on/off`        | yes                              |
+| `homeos install <anything>`          | yes                              |
+| `homeos config nas add/remove`       | yes                              |
+| `homeos config secrets set`          | yes (value redacted from diff)   |
+| `homeos config stack up/down/update` | yes                              |
+| `homeos config cosmos on/off`        | yes                              |
+| `homeos status / doctor / audit`     | no (read-only)                   |
+| Cosmos UI Docker actions             | Docker socket shim; BYPASS audit |
 
 Bypass: `HOMEOS_NO_REVIEW=1 homeos ...` (logged as bypass).
 Auto-apply: `HOMEOS_AUTO_APPLY=1 homeos ...` (skip y/N prompt; useful in
@@ -78,23 +78,31 @@ Format (JSONL, one entry per command):
 Rotated weekly via `logrotate`, kept 10 years (520 weeks). Owner takes
 full responsibility — see `homeos audit` to introspect.
 
-## Cosmos bypass-warn audit path
+## Cosmos Docker socket shim
 
-Cosmos has its own web UI and talks to Docker directly. In v0.4.x HomeOS does
-not block those UI actions because doing so would break Cosmos UX. Instead,
-`homeos-cosmos-audit.service` tails the Cosmos log stream (falling back to
-`docker logs -f cosmos` when Cosmos changes its on-disk log path) and mirrors
-recognized container/image/network/volume mutations into `/var/log/homeos-audit.jsonl`.
+Cosmos has its own web UI and talks to Docker directly. In v0.5.x HomeOS mounts
+`/var/run/cosmos-docker.sock` into the Cosmos container as `/var/run/docker.sock`.
+`homeos-cosmos-docker-shim.service` listens on that socket, forwards requests to
+the real `/var/run/docker.sock`, and writes an audit entry for mutating Docker
+API methods (`POST`, `PUT`, `PATCH`, `DELETE`). The shim is informational: it
+records `BYPASS` and does not block Cosmos UI actions.
 
-Mirrored entries use:
+Shim entries use:
 
-- `cmd`: `cosmos:<action>` (for example `cosmos:container:stop`)
+- `cmd`: `cosmos:docker:<METHOD>` (for example `cosmos:docker:POST`)
 - `user`: `cosmos`
 - `verdict`: `BYPASS`
 - `choice`: `observed`
-- `source`: `cosmos-audit`
+- `source`: `cosmos-docker-shim`
+- `summary`: `<METHOD> <path>`
 
-Inspect them with:
+Request bodies are never written to the public audit log; only a short hash is
+kept for correlation. Read-only methods such as `GET /containers/json` are
+proxied without audit entries. The Cosmos compose stack is launched through
+`homeos-cosmos.service`, ordered after `homeos-cosmos-docker-shim.service`, so
+normal boot and CLI toggles start the shim before the container bind-mounts it.
+
+Inspect Cosmos-origin events with:
 
 ```bash
 homeos audit cosmos-events
@@ -102,7 +110,7 @@ homeos audit cosmos-events -n 100
 ```
 
 Acceptance target: a container stopped from the Cosmos UI should appear in the
-HomeOS audit log within 5 seconds while the service is running.
+HomeOS audit log within 5 seconds while the shim service is running.
 
 ## What the AI sees
 
@@ -124,5 +132,5 @@ HOMEOS_NO_REVIEW=1 sudo homeos config rerun-bootstrap
 
 - v0.3.0 — gate on rerun-bootstrap, portal, install
 - v0.4.0 — gate on nas, secrets, stack, plus Cosmos bypass-warn audit mirror
-- v0.5.0 — gate on Cosmos via Docker socket shim
+- v0.5.0 — Cosmos Docker socket shim emits BYPASS audit entries
 - v0.6.0 — `homeos audit replay <id>` to re-run a past intent

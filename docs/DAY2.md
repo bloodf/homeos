@@ -20,8 +20,9 @@ Prints a summary block:
 - Disk usage for `/`, `/boot`, `/srv/nas/*`.
 - LVM cache hit ratio (`lvs -o +cache_read_hits,cache_write_hits`).
 - `systemctl is-active` for: `docker`, `caddy`, `cockpit.socket`, `casaos`,
-  `tailscaled`, `nfs-kernel-server`, `smbd`.
+  `tailscaled`, `nfs-kernel-server`, `smbd`, and the Cosmos Docker shim.
 - `docker ps` summary.
+- `homeos-cosmos-docker-shim.service` state and active-since timestamp.
 - `tailscale status --self` (or "not connected").
 - `vainfo` first line (GPU driver).
 
@@ -182,16 +183,21 @@ homeos config cosmos status
 
 First visit triggers setup wizard. Create admin account immediately.
 
-Cosmos UI container mutations bypass the interactive AI gate, but v0.4 mirrors
-recognized Cosmos Docker actions into the HomeOS audit log with verdict
-`BYPASS`:
+Cosmos UI container mutations bypass the interactive AI gate, but v0.5 routes
+Cosmos through `/var/run/cosmos-docker.sock`. The
+`homeos-cosmos-docker-shim.service` proxy forwards to the real Docker socket and
+audit-logs mutating Docker API methods with verdict `BYPASS`:
 
 ```bash
 homeos audit cosmos-events
 homeos audit cosmos-events -n 100
 ```
 
-`homeos-cosmos-audit.service` starts only while the Cosmos stack is enabled.
+Read-only Docker API calls are proxied without audit entries. `homeos config
+cosmos on` starts `homeos-cosmos-docker-shim.service` before
+`homeos-cosmos.service` launches the compose stack; the same ordering is enabled
+for boot. The legacy v0.4 log-tail audit service is disabled to avoid duplicate
+events.
 
 ## Re-runnable semantics
 

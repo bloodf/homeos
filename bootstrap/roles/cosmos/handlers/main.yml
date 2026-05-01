@@ -1,7 +1,11 @@
 ---
-- name: restart cosmos audit
-  ansible.builtin.systemd:
-    name: homeos-cosmos-audit.service
-    state: restarted
-    daemon_reload: true
+- name: restart cosmos docker shim
+  ansible.builtin.shell: |
+    if [ -f /var/lib/homeos/cosmos.enabled ]; then
+      systemctl daemon-reload
+      systemctl stop homeos-cosmos.service || true
+      systemctl restart homeos-cosmos-docker-shim.service
+      systemctl start homeos-cosmos.service
+    fi
+  changed_when: false
   failed_when: false

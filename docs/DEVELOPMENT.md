@@ -84,7 +84,7 @@ homeos/
 │   │   └── nas_disks.yml       # USB drives (runtime-edited)
 │   ├── files/                  # static files copied verbatim
 │   ├── templates/              # Jinja2 templates
-│   └── roles/                  # 18 roles
+│   └── roles/                  # Ansible roles
 ├── secrets/
 │   └── authorized_keys         # gitignored — your pubkey
 └── .github/workflows/
@@ -164,15 +164,14 @@ docker run --rm -v "$PWD:/work" homeos-builder:latest \
 make qemu-test
 ```
 
-Boots the ISO with 8 GB RAM, two virtual disks (60 GB OS, 20 GB swap+cache),
-and forwards `2222 → 22`. Watch the serial console for the d-i progress.
+The default development smoke is intentionally light: prove the ISO boots and
+that unattended Debian Installer reaches the install path without an interactive
+prompt. Full first-boot/bootstrap/service validation is reserved for explicit
+release hardening runs.
 
-After install completes and the box reboots:
-
-```bash
-ssh -p 2222 admin@localhost
-# password: homeos (forced change)
-```
+For a manual light smoke, boot the ISO in QEMU, capture serial output, and pass
+once the log reaches an install/base-system stage such as "Installing the base
+system" or "Configuring apt" without `[!!]` installer prompts.
 
 ### CI
 

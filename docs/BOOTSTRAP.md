@@ -1,12 +1,12 @@
 # Bootstrap — Ansible Roles Reference
 
 Stage B is `bootstrap/install.yml`, a single-play, single-host playbook applied
-to `localhost` with `connection: local`. 20 roles run in this order:
+to `localhost` with `connection: local`. Roles run in this order:
 
 ```
 base → ssh → shell → docker → node → brew → gpu-intel → ai-clis →
 github-tools → hermes-agent → tailscale → cockpit → casaos → caddy →
-stacks → portal → nas → backups → homeos-cli → firstboot
+stacks → portal → cosmos → nas → backups → homeos-cli → firstboot
 ```
 
 Re-run anytime with `homeos config rerun-bootstrap` (idempotent).
@@ -19,8 +19,8 @@ System baseline. Runs first because every later role depends on its work.
 
 - `apt update && full-upgrade -y`.
 - Installs core packages: `vim tmux htop btop ncdu rsync unzip jq fzf
-  ripgrep build-essential ca-certificates gnupg lsb-release pciutils usbutils
-  python3-apt`.
+ripgrep build-essential ca-certificates gnupg lsb-release pciutils usbutils
+python3-apt`.
 - Configures `unattended-upgrades` (Debian Security pocket only).
 - Sets up `ufw`:
   - Default deny inbound, allow outbound.
@@ -69,7 +69,7 @@ Docker CE from `download.docker.com`.
 
 - Adds Docker apt key + repo.
 - Installs `docker-ce docker-ce-cli containerd.io docker-buildx-plugin
-  docker-compose-plugin`.
+docker-compose-plugin`.
 - Adds `admin` to `docker` group.
 - `/etc/docker/daemon.json`: `json-file` log driver, `max-size: 10m`,
   `max-file: 3`, `live-restore: true`.
@@ -96,7 +96,7 @@ Homebrew (Linuxbrew) for the `admin` user.
 - Appends `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"` to
   `~admin/.zshrc`.
 - Installs initial formulas: `gh lazygit lazydocker neovim eza bat delta dust
-  procs tokei`.
+procs tokei`.
 
 ## 7. `gpu-intel`
 
@@ -104,7 +104,7 @@ Intel iGPU stack (Gen 9+ for QSV).
 
 - Adds Debian `non-free` apt component.
 - Installs `intel-media-va-driver-non-free i965-va-driver vainfo
-  intel-gpu-tools`.
+intel-gpu-tools`.
 - Adds `admin` to `render` and `video` groups.
 - Verifies with `vainfo`; logs warning (does not fail) if iHD driver missing —
   AMD/no-GPU boxes still complete bootstrap.
@@ -113,14 +113,14 @@ Intel iGPU stack (Gen 9+ for QSV).
 
 Six CLIs.
 
-| CLI | Method |
-|---|---|
-| Claude Code | `npm i -g @anthropic-ai/claude-code` |
-| Codex | `npm i -g @openai/codex` |
-| Gemini | `npm i -g @google/gemini-cli` |
+| CLI          | Method                                         |
+| ------------ | ---------------------------------------------- |
+| Claude Code  | `npm i -g @anthropic-ai/claude-code`           |
+| Codex        | `npm i -g @openai/codex`                       |
+| Gemini       | `npm i -g @google/gemini-cli`                  |
 | Cursor Agent | `curl https://cursor.com/install -fsS \| bash` |
-| OpenCode | `npm i -g opencode-ai` |
-| Kimi | `curl -fsSL <upstream> \| sh` |
+| OpenCode     | `npm i -g opencode-ai`                         |
+| Kimi         | `curl -fsSL <upstream> \| sh`                  |
 
 Each runs `command -v <cli>` afterwards and logs version.
 
@@ -129,18 +129,18 @@ Each runs `command -v <cli>` afterwards and logs version.
 Clones 10 repos under `/opt/tools/`, owned by `admin`. Pinned commit SHAs in
 `vars/main.yml` (refresh via `make pin-tools`).
 
-| Repo | Build |
-|---|---|
-| vectorize-io/hindsight | npm |
-| tirth8205/code-review-graph | pipx |
-| vercel-labs/portless | pnpm |
-| zilliztech/claude-context | npm + Milvus stack |
-| utooland/utoo | cargo |
-| NousResearch/hermes-agent | pipx |
-| volcengine/OpenViking | docker compose |
-| opensoft/oh-my-opencode | symlink → `~admin/.config/opencode/plugins/` |
-| yeachan-heo/oh-my-claudecode | symlink → `~admin/.claude/` |
-| thedotmack/claude-mem | install hooks into Claude Code, Codex, Cursor only |
+| Repo                         | Build                                              |
+| ---------------------------- | -------------------------------------------------- |
+| vectorize-io/hindsight       | npm                                                |
+| tirth8205/code-review-graph  | pipx                                               |
+| vercel-labs/portless         | pnpm                                               |
+| zilliztech/claude-context    | npm + Milvus stack                                 |
+| utooland/utoo                | cargo                                              |
+| NousResearch/hermes-agent    | pipx                                               |
+| volcengine/OpenViking        | docker compose                                     |
+| opensoft/oh-my-opencode      | symlink → `~admin/.config/opencode/plugins/`       |
+| yeachan-heo/oh-my-claudecode | symlink → `~admin/.claude/`                        |
+| thedotmack/claude-mem        | install hooks into Claude Code, Codex, Cursor only |
 
 ## 10. `tailscale`
 
@@ -148,7 +148,7 @@ Clones 10 repos under `/opt/tools/`, owned by `admin`. Pinned commit SHAs in
 - Installs `tailscale tailscale-archive-keyring`.
 - Enables `tailscaled.service`.
 - **Does not** run `tailscale up` — the user runs `homeos config net
-  tailscale-up` after first SSH.
+tailscale-up` after first SSH.
 
 ## 11. `cockpit`
 
@@ -156,7 +156,7 @@ Headless web dashboard for systemd, storage, and NAS file sharing.
 
 - Installs `cockpit cockpit-storaged cockpit-networkmanager cockpit-podman`.
 - Adds 45Drives apt key + repo, installs `cockpit-file-sharing
-  cockpit-navigator cockpit-identities`.
+cockpit-navigator cockpit-identities`.
 - Enables `cockpit.socket`.
 - Listens on `:9090` (LAN + Tailscale).
 
@@ -193,7 +193,23 @@ Stacks: `homeassistant`, `jellyfin`, `vaultwarden`, `watchtower`,
 Watchtower opt-in via `com.centurylinklabs.watchtower.enable=true` label.
 HA + Vaultwarden are explicitly excluded.
 
-## 15. `nas`
+## 15. `cosmos`
+
+Alternative portal with Docker UI. Disabled by default until `homeos config cosmos on`.
+
+- Renders `/opt/stacks/cosmos/docker-compose.yml`.
+- Installs `/usr/local/sbin/homeos-cosmos-docker-shim`.
+- Installs and manages `homeos-cosmos-docker-shim.service`, which listens on
+  `/var/run/cosmos-docker.sock`, forwards to `/var/run/docker.sock`, and writes
+  `BYPASS` audit entries for mutating Docker API methods.
+- Installs `homeos-cosmos.service`, a systemd-managed compose launcher ordered
+  after the Docker socket shim so boot and `homeos config cosmos on` do not bind
+  Cosmos to a missing shim path.
+- Mounts the shim socket into Cosmos as `/var/run/docker.sock`; the real Docker
+  socket is not mounted directly.
+- Disables the legacy v0.4 `homeos-cosmos-audit.service` log tailer.
+
+## 16. `nas`
 
 USB drive mount + Samba/NFS export.
 
@@ -208,20 +224,18 @@ USB drive mount + Samba/NFS export.
 - `nas_disks.yml` starts empty — populated at runtime via
   `homeos config nas add /dev/sdcN`.
 
-## 16. `backups`
+## 17. `backups`
 
 Restic + cron.
 
 - Installs `restic rclone`.
 - Drops helper script `/usr/local/lib/homeos/backup-run.sh`.
-- Cron at 02:30 BRT: `restic backup /srv /opt/stacks /home/admin
-  --exclude-caches`.
+- Cron at 02:30 BRT: `restic backup /srv /opt/stacks /home/admin --exclude-caches`.
 - Weekly forget+prune: `--keep-daily 7 --keep-weekly 4 --keep-monthly 6`.
 - Refuses to run if backup target unmounted.
-- Target configured at runtime via `homeos config backup target set
-  /srv/nas/<backup-label>`.
+- Target configured at runtime via `homeos config backup target set /srv/nas/<backup-label>`.
 
-## 17. `homeos-cli`
+## 18. `homeos-cli`
 
 Day-2 CLI.
 
@@ -230,11 +244,12 @@ Day-2 CLI.
   `/usr/share/zsh/vendor-completions/`.
 - Creates `/var/lib/homeos/` for state files.
 
-## 18. `firstboot`
+## 19. `firstboot`
 
 Self-disabling service.
 
 - Installs `/etc/systemd/system/homeos-firstboot.service`:
+
   ```
   [Unit]
   After=network-online.target
@@ -249,6 +264,7 @@ Self-disabling service.
   StandardOutput=append:/var/log/homeos-bootstrap.log
   StandardError=append:/var/log/homeos-bootstrap.log
   ```
+
 - On success: touches sentinel file and disables itself.
 - On failure: stays enabled, retries on next boot. SSH already works so the
   operator can debug.

@@ -128,11 +128,18 @@ EOF
 # ---------- status ----------
 cmd_status() {
   bold "== services =="
-  systemctl is-active docker tailscaled cockpit.socket casaos caddy smbd nfs-kernel-server 2>/dev/null | paste <(echo -e "docker\ntailscaled\ncockpit\ncasaos\ncaddy\nsmbd\nnfs") - || true
+  systemctl is-active docker tailscaled cockpit.socket casaos caddy smbd nfs-kernel-server homeos-cosmos-docker-shim.service 2>/dev/null | \
+    paste <(echo -e "docker\ntailscaled\ncockpit\ncasaos\ncaddy\nsmbd\nnfs\ncosmos-shim") - || true
   bold "== disks =="
   lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,UUID
   bold "== containers =="
   docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "docker not running"
+  bold "== cosmos docker shim =="
+  if shim_status="$(systemctl show homeos-cosmos-docker-shim.service -p ActiveState -p SubState -p ActiveEnterTimestamp --value 2>/dev/null)"; then
+    awk 'NR==1{print "state: "$0} NR==2{print "substate: "$0} NR==3{print "active since: "$0}' <<<"$shim_status"
+  else
+    echo "not installed"
+  fi
   bold "== GPU =="
   vainfo 2>&1 | grep -E 'Driver version|VAProfile' | head -10 || true
   bold "== tailscale =="
@@ -360,30 +367,31 @@ cmd_cosmos() {
   local sub="${1:-status}"
   local flag="/var/lib/homeos/cosmos.enabled"
   local dir="/opt/stacks/cosmos"
-  local audit_unit="homeos-cosmos-audit.service"
+  local shim_unit="homeos-cosmos-docker-shim.service"
+  local stack_unit="homeos-cosmos.service"
+  local legacy_audit_unit="homeos-cosmos-audit.service"
   case "$sub" in
     on)
       need_root
       [ -d "$dir" ] || err "cosmos stack not installed at $dir — run rerun-bootstrap"
-      gate "cosmos:on" "enable cosmos flag + docker compose up at $dir" \
-        sh -c "mkdir -p '$(dirname "$flag")' && touch '$flag' && cd '$dir' && docker compose up -d"
-      systemctl enable --now "$audit_unit" 2>/dev/null || warn "$audit_unit not installed yet — run rerun-bootstrap to enable Cosmos audit mirroring"
+      gate "cosmos:on" "enable cosmos flag + systemd-managed compose up at $dir through Docker socket shim" \
+        sh -c "mkdir -p '$(dirname "$flag")' && (systemctl disable --now '$legacy_audit_unit' 2>/dev/null || true) && systemctl enable --now '$shim_unit' && touch '$flag' && systemctl enable --now '$stack_unit'"
       bold "cosmos up. URL:"
       echo "  https://cosmos.<tailnet>.ts.net"
       echo "  first-run setup runs in browser; create admin account immediately."
       ;;
     off)
       need_root
-      gate "cosmos:off" "disable cosmos flag + docker compose down at $dir" \
-        sh -c "rm -f '$flag'; [ -d '$dir' ] && (cd '$dir' && docker compose down) || true"
-      systemctl disable --now "$audit_unit" 2>/dev/null || true
+      gate "cosmos:off" "disable cosmos flag + stop systemd-managed Cosmos stack and Docker socket shim" \
+        sh -c "rm -f '$flag'; systemctl disable --now '$stack_unit' 2>/dev/null || true; [ -d '$dir' ] && (cd '$dir' && docker compose down) || true; systemctl disable --now '$shim_unit' 2>/dev/null || true; systemctl disable --now '$legacy_audit_unit' 2>/dev/null || true"
       bold "cosmos down."
       ;;
     status)
       if [ -f "$flag" ]; then echo "flag: enabled"; else echo "flag: disabled"; fi
       docker ps --filter "name=cosmos" \
         --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
-      systemctl --no-pager --lines=0 status "$audit_unit" 2>/dev/null | sed -n '1,3p' || true
+      systemctl --no-pager --lines=0 status "$stack_unit" 2>/dev/null | sed -n '1,3p' || true
+      systemctl --no-pager --lines=0 status "$shim_unit" 2>/dev/null | sed -n '1,3p' || true
       ;;
     *) usage; exit 2 ;;
   esac

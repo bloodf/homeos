@@ -1,0 +1,443 @@
+#!/usr/bin/env python3
+"""HomeOS Cosmos Docker socket shim.
+
+Listens on /var/run/cosmos-docker.sock, forwards to /var/run/docker.sock,
+and mirrors mutating Docker API requests from Cosmos into the HomeOS audit log.
+
+The shim parses ordinary HTTP request/response pairs repeatedly on persistent
+connections. Docker hijack, upgrade, and streaming endpoints are forwarded as a
+raw bidirectional byte stream after the initiating request is audited.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import selectors
+import signal
+import socket
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Optional, Tuple
+from urllib.parse import urlsplit
+
+LISTEN_SOCK = Path(os.environ.get("HOMEOS_COSMOS_DOCKER_SOCK", "/var/run/cosmos-docker.sock"))
+UPSTREAM_SOCK = Path(os.environ.get("HOMEOS_DOCKER_SOCK", "/var/run/docker.sock"))
+AUDIT_LOG = Path(os.environ.get("HOMEOS_AUDIT_LOG", "/var/log/homeos-audit.jsonl"))
+
+HEADER_LIMIT = int(os.environ.get("HOMEOS_COSMOS_SHIM_HEADER_LIMIT", str(128 * 1024)))
+BODY_HASH_LIMIT = int(os.environ.get("HOMEOS_COSMOS_SHIM_BODY_HASH_LIMIT", str(1024 * 1024)))
+REQUEST_TIMEOUT = float(os.environ.get("HOMEOS_COSMOS_SHIM_REQUEST_TIMEOUT", "5"))
+MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+STREAMING_PATH_MARKERS = (
+    "/attach",
+    "/events",
+    "/logs",
+    "/stats",
+    "/exec/",
+    "/build",
+    "/images/create",
+    "/images/load",
+)
+
+shutdown_event = threading.Event()
+
+
+class IncompleteHTTP(Exception):
+    """Raised when a peer closes before a complete HTTP message is available."""
+
+
+def log(message: str) -> None:
+    print(f"homeos-cosmos-docker-shim: {message}", file=sys.stderr, flush=True)
+
+
+def short_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:12]
+
+
+def parse_start_and_headers(buffer: bytes) -> Tuple[Optional[list[str]], dict[str, str], int]:
+    header_end = buffer.find(b"\r\n\r\n")
+    sep_len = 4
+    if header_end < 0:
+        header_end = buffer.find(b"\n\n")
+        sep_len = 2
+    if header_end < 0:
+        return None, {}, -1
+
+    header_blob = buffer[:header_end].decode("iso-8859-1", errors="replace")
+    lines = header_blob.splitlines()
+    if not lines:
+        return None, {}, header_end + sep_len
+
+    headers: dict[str, str] = {}
+    for line in lines[1:]:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            headers[key.strip().lower()] = value.strip()
+    return lines[0].split(), headers, header_end + sep_len
+
+
+def parse_request(buffer: bytes) -> Tuple[Optional[str], Optional[str], dict[str, str], int]:
+    parts, headers, header_offset = parse_start_and_headers(buffer)
+    if not parts or len(parts) < 2:
+        return None, None, headers, header_offset
+    return parts[0].upper(), parts[1], headers, header_offset
+
+
+def parse_response(buffer: bytes) -> Tuple[Optional[int], dict[str, str], int]:
+    parts, headers, header_offset = parse_start_and_headers(buffer)
+    if not parts or len(parts) < 2:
+        return None, headers, header_offset
+    try:
+        return int(parts[1]), headers, header_offset
+    except ValueError:
+        return None, headers, header_offset
+
+
+def find_chunked_end(data: bytes, start: int) -> int:
+    pos = start
+    while True:
+        line_end = data.find(b"\r\n", pos)
+        sep_len = 2
+        if line_end < 0:
+            line_end = data.find(b"\n", pos)
+            sep_len = 1
+        if line_end < 0:
+            return -1
+        size_line = data[pos:line_end].split(b";", 1)[0].strip()
+        try:
+            size = int(size_line, 16)
+        except ValueError:
+            return -1
+        pos = line_end + sep_len
+        if size == 0:
+            trailer_end = data.find(b"\r\n\r\n", pos)
+            if trailer_end >= 0:
+                return trailer_end + 4
+            trailer_end = data.find(b"\n\n", pos)
+            if trailer_end >= 0:
+                return trailer_end + 2
+            # No trailers: final CRLF/LF immediately after the zero-sized chunk.
+            if len(data) >= pos + sep_len:
+                return pos + sep_len
+            return -1
+        pos += size
+        if len(data) < pos + sep_len:
+            return -1
+        pos += sep_len
+
+
+def content_length(headers: dict[str, str]) -> Optional[int]:
+    raw = headers.get("content-length")
+    if raw and raw.isdigit():
+        return int(raw)
+    return None
+
+
+def is_chunked(headers: dict[str, str]) -> bool:
+    return "chunked" in headers.get("transfer-encoding", "").lower()
+
+
+def recv_more(sock: socket.socket, chunks: list[bytes]) -> bytes:
+    chunk = sock.recv(65536)
+    if not chunk:
+        raise IncompleteHTTP
+    chunks.append(chunk)
+    data = b"".join(chunks)
+    if len(data) > HEADER_LIMIT and parse_start_and_headers(data)[2] < 0:
+        raise ValueError("HTTP header too large")
+    return data
+
+
+def large_request_body(headers: dict[str, str]) -> bool:
+    length = content_length(headers)
+    return length is not None and length > BODY_HASH_LIMIT
+
+
+def read_request(client: socket.socket, pending: bytes) -> Tuple[bytes, bytes, Optional[str], Optional[str], dict[str, str], bytes, bool]:
+    client.settimeout(REQUEST_TIMEOUT)
+    chunks = [pending] if pending else []
+    data = pending
+
+    try:
+        while True:
+            method, path, headers, header_offset = parse_request(data)
+            if header_offset >= 0:
+                break
+            data = recv_more(client, chunks)
+
+        # Do not buffer large uploads, hijacks, or streaming Docker endpoints.
+        # Forward the complete header block plus any body bytes already received,
+        # then switch this connection to raw relay.
+        if request_needs_raw_relay(method, path, headers) or large_request_body(headers):
+            return data, b"", method, path, headers, data[header_offset:], True
+
+        length = content_length(headers)
+        if length is not None:
+            target = header_offset + length
+            while len(data) < target:
+                data = recv_more(client, chunks)
+            raw = data[:target]
+            rest = data[target:]
+        elif is_chunked(headers):
+            end = find_chunked_end(data, header_offset)
+            while end < 0:
+                data = recv_more(client, chunks)
+                end = find_chunked_end(data, header_offset)
+            raw = data[:end]
+            rest = data[end:]
+        else:
+            raw = data[:header_offset]
+            rest = data[header_offset:]
+
+        return raw, rest, method, path, headers, raw[header_offset:], False
+    finally:
+        client.settimeout(None)
+
+
+def response_body_forbidden(status: Optional[int], request_method: Optional[str]) -> bool:
+    if request_method == "HEAD":
+        return True
+    if status is None:
+        return False
+    return 100 <= status < 200 or status in {204, 304}
+
+
+def read_response(upstream: socket.socket, request_method: Optional[str]) -> Tuple[bytes, bool, dict[str, str]]:
+    chunks: list[bytes] = []
+    data = b""
+
+    while True:
+        status, headers, header_offset = parse_response(data)
+        if header_offset >= 0:
+            break
+        data = recv_more(upstream, chunks)
+
+    if response_body_forbidden(status, request_method):
+        return data[:header_offset], False, headers
+
+    length = content_length(headers)
+    if length is not None:
+        target = header_offset + length
+        while len(data) < target:
+            data = recv_more(upstream, chunks)
+        return data[:target], False, headers
+
+    if is_chunked(headers):
+        end = find_chunked_end(data, header_offset)
+        while end < 0:
+            data = recv_more(upstream, chunks)
+            end = find_chunked_end(data, header_offset)
+        return data[:end], False, headers
+
+    # No bounded body length: preserve behavior by switching to raw relay after
+    # forwarding the response bytes already read.
+    return data, True, headers
+
+
+def body_digest(body: bytes) -> str:
+    return hashlib.sha256(body[:BODY_HASH_LIMIT]).hexdigest()
+
+
+def audit_request(method: Optional[str], path: Optional[str], body: bytes) -> None:
+    if method not in MUTATING_METHODS or not path:
+        return
+
+    hash_input = f"{method}\n{path}\n{body_digest(body)}".encode("utf-8", errors="replace")
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "cmd": f"cosmos:docker:{method}",
+        "user": "cosmos",
+        "verdict": "BYPASS",
+        "choice": "observed",
+        "diff_hash": short_hash(hash_input),
+        "source": "cosmos-docker-shim",
+        "summary": f"{method} {path}",
+    }
+
+    try:
+        AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with AUDIT_LOG.open("a", encoding="utf-8") as fh:
+            print(json.dumps(entry, separators=(",", ":")), file=fh)
+        try:
+            AUDIT_LOG.chmod(0o644)
+        except PermissionError:
+            pass
+    except Exception as exc:  # audit must never break Docker UX
+        log(f"audit write failed: {exc}")
+
+
+def request_needs_raw_relay(method: Optional[str], path: Optional[str], headers: dict[str, str]) -> bool:
+    if headers.get("upgrade") or "upgrade" in headers.get("connection", "").lower():
+        return True
+    if not path:
+        return False
+
+    parsed = urlsplit(path)
+    request_path = (parsed.path or path.split("?", 1)[0]).lower()
+    request_target = path.lower()
+
+    if method == "POST" and ("/attach" in request_path or "/exec/" in request_path and "/start" in request_path):
+        return True
+
+    return any(marker in request_path for marker in STREAMING_PATH_MARKERS) and (
+        "stream=1" in request_target
+        or "follow=1" in request_target
+        or request_path.endswith("/events")
+        or "/attach" in request_path
+        or "/build" in request_path
+        or "/images/create" in request_path
+        or "/images/load" in request_path
+    )
+
+
+def response_needs_raw_relay(headers: dict[str, str], unbounded_body: bool) -> bool:
+    if headers.get("upgrade") or "upgrade" in headers.get("connection", "").lower():
+        return True
+    return unbounded_body
+
+
+def relay_pair(client: socket.socket, upstream: socket.socket, initial_to_upstream: bytes = b"") -> None:
+    if initial_to_upstream:
+        upstream.sendall(initial_to_upstream)
+
+    sel = selectors.DefaultSelector()
+    sockets = {client: upstream, upstream: client}
+    for sock in sockets:
+        sock.setblocking(False)
+        sel.register(sock, selectors.EVENT_READ)
+
+    try:
+        while not shutdown_event.is_set():
+            events = sel.select(timeout=1)
+            if not events:
+                continue
+            for key, _ in events:
+                src = key.fileobj
+                dst = sockets[src]
+                try:
+                    data = src.recv(65536)
+                except (BlockingIOError, InterruptedError):
+                    continue
+                except OSError:
+                    return
+                if not data:
+                    return
+                try:
+                    dst.sendall(data)
+                except OSError:
+                    return
+    finally:
+        for sock in sockets:
+            try:
+                sel.unregister(sock)
+            except Exception:
+                pass
+        sel.close()
+        for sock in sockets:
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+
+def handle_client(client: socket.socket) -> None:
+    upstream: Optional[socket.socket] = None
+    try:
+        upstream = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        upstream.connect(str(UPSTREAM_SOCK))
+        pending = b""
+
+        while not shutdown_event.is_set():
+            try:
+                raw_request, pending, method, path, headers, body, raw_relay_request = read_request(client, pending)
+            except IncompleteHTTP:
+                return
+            if not raw_request:
+                return
+
+            audit_request(method, path, body)
+            upstream.sendall(raw_request)
+
+            if raw_relay_request:
+                relay_pair(client, upstream, pending)
+                return
+
+            raw_response, unbounded_body, response_headers = read_response(upstream, method)
+            client.sendall(raw_response)
+
+            if response_needs_raw_relay(response_headers, unbounded_body):
+                relay_pair(client, upstream, pending)
+                return
+    except Exception as exc:
+        log(f"connection failed: {exc}")
+    finally:
+        for sock in (client, upstream):
+            if sock is not None:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+
+
+def cleanup_socket() -> None:
+    try:
+        if not LISTEN_SOCK.exists() and not LISTEN_SOCK.is_socket():
+            return
+        if LISTEN_SOCK.is_socket():
+            LISTEN_SOCK.unlink()
+            return
+        raise FileExistsError(f"refusing to remove non-socket path: {LISTEN_SOCK}")
+    except FileNotFoundError:
+        pass
+
+
+def request_shutdown(_signum: int, _frame: object) -> None:
+    shutdown_event.set()
+
+
+def main() -> int:
+    signal.signal(signal.SIGTERM, request_shutdown)
+    signal.signal(signal.SIGINT, request_shutdown)
+
+    LISTEN_SOCK.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        cleanup_socket()
+    except FileExistsError as exc:
+        log(str(exc))
+        return 1
+
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(LISTEN_SOCK))
+    os.chmod(LISTEN_SOCK, 0o660)
+    server.listen(128)
+    server.settimeout(1)
+    log(f"listening on {LISTEN_SOCK}, forwarding to {UPSTREAM_SOCK}")
+
+    try:
+        while not shutdown_event.is_set():
+            try:
+                client, _addr = server.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                if shutdown_event.is_set():
+                    break
+                raise
+            threading.Thread(target=handle_client, args=(client,), daemon=True).start()
+    finally:
+        try:
+            server.close()
+        finally:
+            try:
+                cleanup_socket()
+            except FileExistsError as exc:
+                log(str(exc))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

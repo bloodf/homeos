@@ -89,6 +89,8 @@ homeos config cosmos on|off|status
 homeos audit tail|search|cosmos-events
 ```
 
+Cosmos runs through `/var/run/cosmos-docker.sock`, a HomeOS Docker API shim that forwards to Docker and records mutating UI actions as `BYPASS` audit entries without logging request bodies.
+
 ## Repository layout
 
 ```
@@ -117,14 +119,14 @@ homeos/
 │   ├── grub.cfg                   # auto-boot, no menu, serial console enabled
 │   └── isolinux.cfg               # legacy BIOS boot path
 ├── bootstrap/                     # Stage B — first-boot Ansible playbook
-│   ├── install.yml                # top-level play (18 roles)
+│   ├── install.yml                # top-level play (Ansible roles)
 │   ├── requirements.yml           # ansible-galaxy collections
 │   ├── vars/
 │   │   ├── main.yml               # pinned versions, AI CLIs, github_tools, firewall
 │   │   ├── stacks.yml             # docker-compose stack list
 │   │   └── nas_disks.yml          # USB drives (filled in via `homeos config nas add`)
 │   ├── files/                     # static files copied verbatim
-│   └── roles/                     # 18 roles — see docs/BOOTSTRAP.md
+│   └── roles/                     # Ansible roles — see docs/BOOTSTRAP.md
 ├── secrets/
 │   └── authorized_keys            # YOUR ssh pubkey (gitignored). Empty = public build.
 └── .github/workflows/
@@ -187,7 +189,7 @@ make builder        # build the homeos-builder Docker image
 make base-iso       # download + verify upstream Debian netinst
 make iso            # repack with preseed + bootstrap, emit dist/*.iso + .sha256
 make ARCH=arm64 iso # arm64 variant
-make qemu-test      # boot the ISO in QEMU (needs qemu-system-x86 + KVM on Linux)
+make qemu-test      # boot the ISO in QEMU (light smoke: boot + installer path)
 make clean          # nuke dist/ and qemu disk images
 make refresh-pins   # print latest github_tools commit SHAs
 make pin-tools      # write latest SHAs into bootstrap/vars/main.yml
