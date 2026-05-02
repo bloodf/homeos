@@ -3,12 +3,14 @@
 You are the v1.0 validation/testing agent for HomeOS.
 
 Your job:
-Run the final full visible QEMU / full ISO validation for v1.0. The user wants to SEE the test happening.
+Run the final full visible QEMU / full ISO validation for v1.0. The user wants to SEE the test happening. Use `docs/V1-FINAL-VALIDATION.md` as the pass/fail checklist and this file as the command-oriented runbook.
 
 Repo:
+
 - `/Users/heitor/Developer/github.com/bloodf/homeos`
 
 Policy:
+
 - This is the first point where full QEMU validation is allowed.
 - Use a visible/supervised QEMU session, preferably via tmux or an interactive terminal/overlay.
 - Do not hide the QEMU output in a silent background-only process.
@@ -17,6 +19,7 @@ Policy:
 - Record all logs and outcomes.
 
 Before starting:
+
 1. Confirm current git state:
    ```bash
    git status --short
@@ -31,6 +34,7 @@ Before starting:
    ```
 
 Build final ISO:
+
 ```bash
 make builder
 make base-iso
@@ -40,6 +44,7 @@ sha256sum dist/homeos-debian-13.4-amd64.iso | tee -a HANDOFF-LOG.md
 ```
 
 Prepare visible QEMU test:
+
 ```bash
 cd test/run/v1-final
 ssh-keygen -t ed25519 -N '' -f id_test -C test@homeos
@@ -78,12 +83,14 @@ echo "User can watch with: tmux attach -t homeos-v1-qemu"
 ```
 
 If host supports acceleration:
+
 - Linux: add `-enable-kvm -cpu host`
 - macOS if supported: add `-accel hvf`
 - If acceleration fails, retry without acceleration and log it.
 
 Verification steps:
 Define SSH helper:
+
 ```bash
 cd test/run/v1-final
 SSH() {
@@ -96,6 +103,7 @@ SSH() {
 ```
 
 Stage A — installer completes and SSH comes up:
+
 ```bash
 for i in $(seq 1 240); do
   SSH "echo ok" && break
@@ -104,6 +112,7 @@ done || { echo "FAIL: SSH never came up"; exit 1; }
 ```
 
 Stage B — bootstrap completes:
+
 ```bash
 SSH 'until test -f /var/lib/homeos/bootstrapped; do
        sleep 30
@@ -112,12 +121,15 @@ SSH 'until test -f /var/lib/homeos/bootstrapped; do
 ```
 
 Stage C — doctor:
+
 ```bash
 SSH 'homeos doctor'
 ```
+
 If `homeos doctor` reports GPU-only failures due QEMU lacking `/dev/dri`, record and classify whether acceptable per docs. Do not hide failures.
 
 Stage D — audit/gate:
+
 ```bash
 SSH 'sudo homeos config gate set none'
 SSH "HOMEOS_AUTO_APPLY=1 sudo homeos config secrets set TEST_KEY=$TEST_FAKE_KEY"
@@ -125,29 +137,36 @@ SSH 'homeos audit tail -n 10 | grep -q secrets:set'
 ```
 
 Stage E — audit replay if v0.6+:
+
 ```bash
 SSH 'sudo homeos audit tail -n 20'
 SSH 'sudo homeos audit show 1 || true'
 ```
+
 If there is a replayable secrets entry:
+
 ```bash
 SSH 'sudo homeos audit replay <id_or_hash>'
 ```
+
 Use an actual replayable ID/hash discovered from audit output.
 
 Stage F — installer dispatch:
+
 ```bash
 SSH 'HOMEOS_AUTO_APPLY=1 sudo homeos install ai-keys --reconfigure </dev/null || true'
 SSH 'test -f /var/lib/homeos/installed.d/ai-keys.installed'
 ```
 
 Stage G — secure mode:
+
 ```bash
 SSH 'sudo homeos secure'
 SSH 'echo still-works'
 ```
 
 Stage H — reboot and service health:
+
 ```bash
 SSH 'sudo systemctl reboot' || true
 sleep 90
@@ -160,6 +179,7 @@ SSH 'docker ps --format "{{.Names}}" | sort' | tee containers.txt
 ```
 
 Required containers:
+
 ```bash
 for required in homeassistant vaultwarden watchtower; do
   grep -q "^$required" containers.txt || {
@@ -170,6 +190,7 @@ done
 ```
 
 Cosmos shim validation if Cosmos enabled/installed:
+
 ```bash
 SSH 'systemctl status homeos-cosmos-docker-shim.service --no-pager || true'
 SSH 'homeos config cosmos status || true'
@@ -177,6 +198,7 @@ SSH 'homeos audit cosmos-events -n 20 || true'
 ```
 
 Pass criteria:
+
 - User can visibly watch QEMU/tmux session.
 - ISO boots.
 - Unattended install completes.
@@ -191,11 +213,13 @@ Pass criteria:
 - Logs are saved.
 
 On pass, append:
+
 ```bash
 echo "V1 FULL QEMU PASS commit=$(git rev-parse --short HEAD) iso=$(sha256sum dist/homeos-debian-13.4-amd64.iso | cut -d' ' -f1)" >> HANDOFF-LOG.md
 ```
 
 On failure:
+
 - Do not tag v1.0.
 - Keep `test/run/v1-final/qemu.log`.
 - Capture:
@@ -211,6 +235,7 @@ On failure:
 - Summarize failure cause and next fix prompt.
 
 Teardown only after user approves or logs are saved:
+
 ```bash
 tmux kill-session -t homeos-v1-qemu 2>/dev/null || true
 rm -f secrets/authorized_keys

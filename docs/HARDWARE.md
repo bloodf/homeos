@@ -2,14 +2,14 @@
 
 ## Tested
 
-| Class | Example | Status |
-|---|---|---|
-| Intel NUC (Gen 9+) | NUC11, NUC12 | ✅ full support including Jellyfin QSV |
-| Mini PC (N100/N305) | Beelink S12, GMKtec NucBox | ✅ full support, QSV works |
-| Custom build (i3/i5 12th-gen+ + iGPU) | DIY | ✅ full support |
-| Old laptop, x86_64 | ThinkPad T480, X1 | ✅ works (no QSV on Gen 8 and older) |
-| Raspberry Pi 5 (arm64) | RPi5 8 GB | ⚠️ boots, no GPU transcoding |
-| Apple Silicon Mac | (via UTM/QEMU) | ❌ ISO doesn't apply — use the arm64 build for native arm64 boards instead |
+| Class                                 | Example                    | Status                                                                     |
+| ------------------------------------- | -------------------------- | -------------------------------------------------------------------------- |
+| Intel NUC (Gen 9+)                    | NUC11, NUC12               | ✅ full support including Jellyfin QSV                                     |
+| Mini PC (N100/N305)                   | Beelink S12, GMKtec NucBox | ✅ full support, QSV works                                                 |
+| Custom build (i3/i5 12th-gen+ + iGPU) | DIY                        | ✅ full support                                                            |
+| Old laptop, x86_64                    | ThinkPad T480, X1          | ✅ works (no QSV on Gen 8 and older)                                       |
+| Raspberry Pi 5 (arm64)                | RPi5 8 GB                  | ⚠️ boots, no GPU transcoding                                               |
+| Apple Silicon Mac                     | (via UTM/QEMU)             | ❌ ISO doesn't apply — use the arm64 build for native arm64 boards instead |
 
 ## Minimum
 
@@ -25,6 +25,7 @@
 ### Intel iGPU (Gen 9+) — fully supported
 
 Skylake (Gen 9) and newer. Bootstrap installs:
+
 - `intel-media-va-driver-non-free` (iHD)
 - `i965-va-driver` (legacy)
 - `vainfo`, `intel-gpu-tools`
@@ -113,12 +114,12 @@ sudo homeos config rerun-bootstrap
 
 ## Form factor recommendations
 
-| Use case | Recommendation | Why |
-|---|---|---|
-| Quiet 24/7 always-on | Mini PC with N100/N305 | 6–10 W idle, fanless, plenty of perf for everything HomeOS does |
-| Heavy transcoding (4K HDR) | Intel 12th-gen+ NUC or DIY | iGPU with AV1 encode, more RAM headroom |
-| Media-heavy NAS | DIY ATX with HBA + 4–8 USB ports | More disk slots = more storage. RAID via mdadm or zfs is your job. |
-| Just-trying-it-out | Old laptop you have lying around | Free hardware. Works fine for HA + low-bitrate Jellyfin. |
+| Use case                   | Recommendation                   | Why                                                                |
+| -------------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Quiet 24/7 always-on       | Mini PC with N100/N305           | 6–10 W idle, fanless, plenty of perf for everything HomeOS does    |
+| Heavy transcoding (4K HDR) | Intel 12th-gen+ NUC or DIY       | iGPU with AV1 encode, more RAM headroom                            |
+| Media-heavy NAS            | DIY ATX with HBA + 4–8 USB ports | More disk slots = more storage. RAID via mdadm or zfs is your job. |
+| Just-trying-it-out         | Old laptop you have lying around | Free hardware. Works fine for HA + low-bitrate Jellyfin.           |
 
 ## Power
 
@@ -131,11 +132,13 @@ sudo homeos config rerun-bootstrap
 ## ARM64 specifics
 
 The arm64 ISO is EFI-only (no BIOS, no isolinux). Tested on:
+
 - QEMU virt machine (`-machine virt -accel tcg`)
 - Generic UEFI arm64 boards
 
 It will **not** boot on a Raspberry Pi out of the box — RPis have their own
-boot path (config.txt, no UEFI). A bespoke RPi image is future work.
+boot path (config.txt, no UEFI). A bespoke RPi image is outside the v1.0 ISO
+validation scope.
 
 For native arm64 servers (Ampere Altra, AWS Graviton via bare metal, etc.):
 
@@ -143,4 +146,6 @@ For native arm64 servers (Ampere Altra, AWS Graviton via bare metal, etc.):
 make ARCH=arm64 iso
 ```
 
-Pass `ARCH=arm64` to `make qemu-test` after adding a virt-machine target.
+Use `ARCH=arm64` with release builds for native UEFI arm64 machines. The current
+`make qemu-test` helper is amd64-focused; arm64 QEMU validation needs a separate
+orchestrator-approved virt-machine runbook.

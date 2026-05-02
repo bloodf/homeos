@@ -24,9 +24,9 @@ any point.
 See [ARCHITECTURE.md](ARCHITECTURE.md) — short version: the install phase
 needs to make irreversible disk decisions, the bootstrap phase needs
 network + idempotency, and the day-2 phase needs to be re-runnable.
-Mashing them into one would cost reproducibility *and* operability.
+Mashing them into one would cost reproducibility _and_ operability.
 
-## Why CasaOS *and* Cockpit?
+## Why CasaOS _and_ Cockpit?
 
 They solve different problems:
 
@@ -148,6 +148,7 @@ You can layer your own domain on top:
    upstream.
 
 Tailscale won't issue certs for non-`ts.net` names. Either:
+
 - Use HTTP only (insecure on a public domain — don't).
 - Add LetsEncrypt for that one hostname (Caddy auto-magic).
 
@@ -155,6 +156,7 @@ Tailscale won't issue certs for non-`ts.net` names. Either:
 
 Because `git clone <repo>` then "build whatever's there" is a supply chain
 hole. Pinning to a SHA means:
+
 - The same ISO build reproduces bit-identically.
 - An upstream takeover doesn't auto-deploy malicious code on next install.
 
@@ -162,13 +164,14 @@ hole. Pinning to a SHA means:
 
 ## Why are there no automated tests?
 
-There are some — Ansible syntax check, QEMU boot smoke test. What's
-**not** automated is end-to-end "did the bootstrap actually finish on real
-hardware". That requires a hardware lab, which a home project doesn't
-have.
+There are some — static shell checks, YAML parsing, committed-pin checks, and
+release CI builds for both ISO architectures. Full QEMU validation is reserved
+for the v1.0 final gate so the installer/bootstrap run can be watched and logged
+end to end. What's **not** automated is "did the bootstrap actually finish on
+real hardware". That requires a hardware lab, which a home project doesn't have.
 
-Doctor (`homeos doctor`) is the proxy: it runs after install on real
-hardware and exits non-zero on any failure.
+Doctor (`homeos doctor`) is the proxy: it runs after install on real hardware
+and exits non-zero on any failure.
 
 ## Can I use this commercially?
 

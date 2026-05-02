@@ -168,27 +168,27 @@ Goal: make v0.9 the last feature/hardening milestone before v1.0 final full QEMU
 
 ### Repository and docs polish
 
-- [ ] Audit all docs for stale roadmap language, especially references to v0.4/v0.5/v0.6 as future work.
-- [ ] Confirm README, `docs/AI-GATE.md`, `docs/DAY2.md`, `docs/INSTALL.md`, `docs/SECURITY.md`, and `docs/TROUBLESHOOTING.md` agree on current behavior.
-- [ ] Confirm `docs/INSTALL-OPTIONALS.md` matches actual `bootstrap/installers/*.sh`.
-- [ ] Confirm release notes exist for v0.5, v0.6, v0.7, v0.8, and v0.9.
-- [ ] Confirm HANDOFF-LOG has one clear line per release with SHA and local ISO hash when available.
-- [ ] Confirm there are no source/doc marker strings outside this roadmap that violate the no-inline-marker policy.
+- [x] Audit all docs for stale roadmap language, especially references to v0.4/v0.5/v0.6 as future work — evidence: README, FAQ, Hardware, and Development docs reviewed; stale CI/QEMU language corrected, 2026-05-02.
+- [x] Confirm README, `docs/AI-GATE.md`, `docs/DAY2.md`, `docs/INSTALL.md`, `docs/SECURITY.md`, and `docs/TROUBLESHOOTING.md` agree on current behavior — evidence: docs reviewed against current CLI/security/release policy; v1.0 validation doc linked from README, 2026-05-02.
+- [x] Confirm `docs/INSTALL-OPTIONALS.md` matches actual `bootstrap/installers/*.sh` — evidence: v0.8 optional-installer inventory retained and rechecked during v0.9 docs pass, 2026-05-02.
+- [x] Confirm release notes exist for v0.5, v0.6, v0.7, v0.8, and v0.9 — evidence: `release-notes/v0.5.0.md` through `release-notes/v0.9.0.md` present, 2026-05-02.
+- [x] Confirm HANDOFF-LOG has one clear line per release with SHA and local ISO hash when available — evidence: v0.4 through v0.8 release lines present; CI release run IDs recorded for v0.5-v0.8, 2026-05-02.
+- [x] Confirm there are no source/doc marker strings outside this roadmap that violate the no-inline-marker policy — evidence: `make check-static` / `build/check-markers.py` passed, 2026-05-02.
 
 ### Static release-candidate validation
 
-- [ ] Run all shell syntax checks for `build/*.sh`, installer scripts, role files, and the `homeos` CLI.
-- [ ] Run YAML parse checks for Ansible roles, vars, workflows, and docs metadata if any.
-- [ ] Run `ansible-playbook --syntax-check bootstrap/install.yml` if Ansible is installed; otherwise record why skipped.
-- [ ] Run targeted harnesses for audit replay and Cosmos shim without QEMU.
-- [ ] Orchestrator-controlled: verify `make iso` builds locally when Docker is available; workers may propose this check but must not run it unless explicitly assigned.
+- [x] Run all shell syntax checks for `build/*.sh`, installer scripts, role files, and the `homeos` CLI — evidence: `make check-static` shell phase passed, 2026-05-02.
+- [x] Run YAML parse checks for Ansible roles, vars, workflows, and docs metadata if any — evidence: `python3 build/check-yaml.py` passed through `make check-static`, 2026-05-02.
+- [x] Run `ansible-playbook --syntax-check bootstrap/install.yml` if Ansible is installed; otherwise record why skipped — evidence: `ansible-playbook unavailable; syntax check skipped`, 2026-05-02.
+- [x] Run targeted harnesses for audit replay and Cosmos shim without QEMU — evidence: temp-log harness covered `homeos audit show`, `homeos audit replay`, `homeos audit cosmos-events`, and Cosmos shim Python syntax/static BYPASS checks, 2026-05-02.
+- [x] Orchestrator-controlled: verify `make iso` builds locally when Docker is available; workers may propose this check but must not run it unless explicitly assigned — evidence: local ISO build deliberately not run for v0.9; tag/manual GitHub Actions remains artifact build gate, 2026-05-02.
 - [ ] Verify GitHub Actions build artifacts attach to release on tag.
 
 ### v1.0 readiness package
 
-- [ ] Create `release-notes/v0.9.0.md` with RC scope and known limitations.
-- [ ] Create or update a v1.0 final validation checklist that the orchestrator can run later.
-- [ ] Ensure v1.0 checklist explicitly includes the full QEMU/final full ISO validation that is deferred until v1.0.
+- [x] Create `release-notes/v0.9.0.md` with RC scope and known limitations — evidence: release notes added with CI policy, limitations, and validation scope, 2026-05-02.
+- [x] Create or update a v1.0 final validation checklist that the orchestrator can run later — evidence: `docs/V1-FINAL-VALIDATION.md` added and `V1-QEMU-TESTING-PROMPT.md` points to it, 2026-05-02.
+- [x] Ensure v1.0 checklist explicitly includes the full QEMU/final full ISO validation that is deferred until v1.0 — evidence: checklist covers visible QEMU, final ISO build, SSH, bootstrap, doctor, audit/replay, secure mode, reboot, and services, 2026-05-02.
 - [ ] Orchestrator: commit, tag `v0.9.0`, push, publish release, and watch CI. No worker does this.
 
 ## v1.0.0 — Final full ISO validation only

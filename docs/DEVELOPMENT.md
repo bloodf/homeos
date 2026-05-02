@@ -23,6 +23,7 @@ make iso
 ```
 
 This:
+
 1. Warns if `secrets/authorized_keys` is empty (public-distro mode).
 2. Refreshes GitHub tool SHAs (`make pin-tools`).
 3. Builds the `homeos-builder` Docker image (`make builder`).
@@ -46,18 +47,18 @@ Docker's QEMU layer.
 
 ## Make targets
 
-| Target | What |
-|---|---|
-| `make help` | Show all targets |
-| `make builder` | Build the Docker builder image |
-| `make base-iso` | Download + verify upstream Debian netinst |
-| `make pin-tools` | Refresh GitHub tool commit SHAs |
-| `make refresh-pins` | Print latest SHAs without writing |
-| `make iso` | Full build (default for `ARCH=amd64`) |
-| `make ARCH=arm64 iso` | Full build for arm64 |
-| `make qemu-test` | Boot the built ISO in QEMU |
-| `make clean` | Wipe `dist/` and QEMU disk images |
-| `make check-pubkey` | Warn if `secrets/authorized_keys` is missing |
+| Target                | What                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `make help`           | Show all targets                                                               |
+| `make builder`        | Build the Docker builder image                                                 |
+| `make base-iso`       | Download + verify upstream Debian netinst                                      |
+| `make pin-tools`      | Refresh GitHub tool commit SHAs                                                |
+| `make refresh-pins`   | Print latest SHAs without writing                                              |
+| `make iso`            | Full build (default for `ARCH=amd64`)                                          |
+| `make ARCH=arm64 iso` | Full build for arm64                                                           |
+| `make qemu-test`      | Boot the built ISO in QEMU; reserved for orchestrator-approved v1.0 validation |
+| `make clean`          | Wipe `dist/` and QEMU disk images                                              |
+| `make check-pubkey`   | Warn if `secrets/authorized_keys` is missing                                   |
 
 ## Repository layout
 
@@ -109,8 +110,8 @@ Roles must remain idempotent — every task should use `state: present`,
    ```yaml
    - name: my-new-tool
      repo: example/my-new-tool
-     ref: HEAD                # `make pin-tools` will replace
-     install: npm             # one of: npm, pnpm, pipx, cargo, none
+     ref: HEAD # `make pin-tools` will replace
+     install: npm # one of: npm, pnpm, pipx, cargo, none
    ```
 2. `make pin-tools` to write a real SHA.
 3. `make iso` to rebuild.
@@ -129,7 +130,7 @@ ansible-playbook -i localhost, -c local \
    ```yaml
    - name: <stack>
      enabled: true
-     watchtower: true   # opt into label-based auto-update
+     watchtower: true # opt into label-based auto-update
    ```
 3. `make iso` (or `homeos config rerun-bootstrap` on a running box).
 
@@ -158,29 +159,28 @@ docker run --rm -v "$PWD:/work" homeos-builder:latest \
   ansible-playbook --syntax-check /work/bootstrap/install.yml
 ```
 
-### QEMU smoke test
+### QEMU final validation
 
 ```bash
 make qemu-test
 ```
 
-The default development smoke is intentionally light: prove the ISO boots and
-that unattended Debian Installer reaches the install path without an interactive
-prompt. Full first-boot/bootstrap/service validation is reserved for explicit
-release hardening runs.
+QEMU is reserved for orchestrator-approved v1.0 validation. The v0.5-v0.9
+milestones use source-level checks and GitHub release builds only; they do not
+run local VM boots. The v1.0 checklist requires a visible supervised QEMU run
+that proves the ISO boots, unattended install completes, SSH works, firstboot
+bootstrap finishes, `homeos doctor` passes or only documented virtual-hardware
+limitations fail, audit/gate flows work, secure mode does not lock out SSH, and
+core services survive reboot.
 
-For a manual light smoke, boot the ISO in QEMU, capture serial output, and pass
-once the log reaches an install/base-system stage such as "Installing the base
-system" or "Configuring apt" without `[!!]` installer prompts.
+See `V1-QEMU-TESTING-PROMPT.md` for the full runbook.
 
 ### CI
 
-`.github/workflows/build-iso.yml` builds amd64 + arm64 in parallel on every
-push to `main` and on PRs touching `build/`, `preseed/`, `bootstrap/`, or
-the workflow itself.
-
-Tagged releases (`v*`) attach both ISOs + `.sha256` files to the GitHub
-release.
+`.github/workflows/build-iso.yml` is intentionally tag/manual-only. `v*` tags and
+`workflow_dispatch` build amd64 + arm64 in parallel, run static policy checks,
+verify committed GitHub tool pins, and attach both ISOs plus `.sha256` files to
+the GitHub release. Branch pushes and pull requests do not trigger ISO builds.
 
 ## Releasing
 

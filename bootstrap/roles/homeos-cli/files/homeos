@@ -654,7 +654,13 @@ import sys, json
 for line in sys.stdin:
   try:
     e = json.loads(line)
-    print(f"{e[\"ts\"]}  {e[\"user\"]:>10}  {e[\"cmd\"]:<28}  verdict={e[\"verdict\"][:40]:<40}  choice={e[\"choice\"]}")
+    print("{ts}  {user:>10}  {cmd:<28}  verdict={verdict:<40}  choice={choice}".format(
+      ts=e["ts"],
+      user=e["user"],
+      cmd=e["cmd"],
+      verdict=e["verdict"][:40],
+      choice=e["choice"],
+    ))
   except Exception:
     print(line.rstrip())
 '

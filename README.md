@@ -244,18 +244,19 @@ hardening checklist.
 
 ## Documentation
 
-| Doc                                                | When to read                           |
-| -------------------------------------------------- | -------------------------------------- |
-| [docs/INSTALL.md](docs/INSTALL.md)                 | First time installing on real hardware |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | Understanding how it all fits together |
-| [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md)             | Customizing what gets installed        |
-| [docs/DAY2.md](docs/DAY2.md)                       | Full `homeos` CLI reference            |
-| [docs/NAS.md](docs/NAS.md)                         | Adding/removing USB drives, Samba/NFS  |
-| [docs/SECURITY.md](docs/SECURITY.md)               | Hardening + secrets management         |
-| [docs/HARDWARE.md](docs/HARDWARE.md)               | Supported hardware, GPU, networking    |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)         | Building from source, contributing     |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | First-boot stalls, broken services     |
-| [docs/FAQ.md](docs/FAQ.md)                         | Common questions                       |
+| Doc                                                        | When to read                           |
+| ---------------------------------------------------------- | -------------------------------------- |
+| [docs/INSTALL.md](docs/INSTALL.md)                         | First time installing on real hardware |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | Understanding how it all fits together |
+| [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md)                     | Customizing what gets installed        |
+| [docs/DAY2.md](docs/DAY2.md)                               | Full `homeos` CLI reference            |
+| [docs/NAS.md](docs/NAS.md)                                 | Adding/removing USB drives, Samba/NFS  |
+| [docs/SECURITY.md](docs/SECURITY.md)                       | Hardening + secrets management         |
+| [docs/HARDWARE.md](docs/HARDWARE.md)                       | Supported hardware, GPU, networking    |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                 | Building from source, contributing     |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)         | First-boot stalls, broken services     |
+| [docs/V1-FINAL-VALIDATION.md](docs/V1-FINAL-VALIDATION.md) | v1.0 full ISO/QEMU validation gate     |
+| [docs/FAQ.md](docs/FAQ.md)                                 | Common questions                       |
 
 ## License
 
