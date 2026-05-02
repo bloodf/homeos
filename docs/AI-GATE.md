@@ -176,3 +176,10 @@ HOMEOS_NO_REVIEW=1 sudo homeos config rerun-bootstrap
 - v0.7.0 — bootstrap reliability fixes and secure-mode diagnostics
 - v0.8.0 — security, supply-chain, docs, and CI hardening
 - v0.9.0 — release-candidate polish and v1.0 final validation checklist
+
+## UX command gate behavior
+
+- `homeos init` is mutating when it invokes setup steps; those steps reuse existing gated commands such as `secure`, `config net`, `config secrets`, `config nas`, and `config backup`.
+- `homeos upgrade --check`, `homeos log`, and `homeos diag` are read-only and do not use the AI gate.
+- Mutating `homeos upgrade` gates apt, Linuxbrew, and each Docker stack update with audit labels such as `upgrade:apt`, `upgrade:brew`, and `upgrade:docker:<stack>`.
+- `homeos config stack rollback` is gated and audited before rewriting compose image references.

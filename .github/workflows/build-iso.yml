@@ -32,7 +32,7 @@ jobs:
       - name: Install static-check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-yaml
+          sudo apt-get install -y --no-install-recommends python3-yaml gnupg gpgv
 
       - name: Static policy checks
         run: make check-static

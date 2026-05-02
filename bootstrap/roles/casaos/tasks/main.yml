@@ -4,14 +4,40 @@
     path: /usr/bin/casaos
   register: casaos_bin
 
-- name: Install CasaOS (pinned)
-  ansible.builtin.shell: |
-    set -e
-    curl -fsSL https://get.casaos.io -o /tmp/casaos-install.sh
-    CASAOS_VERSION="{{ casaos_version }}" bash /tmp/casaos-install.sh
-  args:
-    executable: /bin/bash
+- name: Refuse unverified CasaOS installer when policy is fail-closed
+  ansible.builtin.fail:
+    msg: >-
+      casaos_installer_sha256 is empty and casaos_allow_unverified_installer is false;
+      set a checksum or explicitly allow the TLS-only upstream installer risk.
+  when:
+    - not casaos_bin.stat.exists
+    - (casaos_installer_sha256 | default('') | length) == 0
+    - not (casaos_allow_unverified_installer | default(false) | bool)
+
+- name: Record accepted CasaOS installer trust policy
+  ansible.builtin.debug:
+    msg: >-
+      CasaOS installer checksum is not configured; downloading {{ casaos_installer_url }}
+      over TLS and relying on casaos_version={{ casaos_version }}.
+  when:
+    - not casaos_bin.stat.exists
+    - (casaos_installer_sha256 | default('') | length) == 0
+    - casaos_allow_unverified_installer | default(false) | bool
+
+- name: Download CasaOS installer
+  ansible.builtin.get_url:
+    url: "{{ casaos_installer_url }}"
+    dest: /tmp/casaos-install.sh
+    mode: "0600"
+    checksum: "{{ ('sha256:' ~ casaos_installer_sha256) if (casaos_installer_sha256 | default('') | length) > 0 else omit }}"
   when: not casaos_bin.stat.exists
+
+- name: Install CasaOS using pinned version variable
+  ansible.builtin.command: bash /tmp/casaos-install.sh
+  environment:
+    CASAOS_VERSION: "{{ casaos_version }}"
+  when: not casaos_bin.stat.exists
+  changed_when: true
 
 - name: Ensure CasaOS service running
   ansible.builtin.systemd:
@@ -22,7 +48,7 @@
 - name: Disable CasaOS file-sharing app (Cockpit owns shares)
   ansible.builtin.copy:
     dest: /etc/casaos/homeos.conf
-    mode: '0644'
+    mode: "0644"
     content: |
       # Cockpit + 45Drives owns Samba/NFS. Do not enable CasaOS file-sharing.
       file_sharing_disabled = true

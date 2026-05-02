@@ -272,3 +272,13 @@ Self-disabling service.
 - On success: the service logs completion and disables itself.
 - On failure: the marker is absent, the service stays enabled, and it retries
   on next boot. SSH already works so the operator can debug.
+
+## CasaOS installer trust policy
+
+CasaOS remains version-pinned with `casaos_version`, but the upstream installer script is governed separately:
+
+- `casaos_installer_url` defaults to `https://get.casaos.io`.
+- `casaos_installer_sha256` can pin the installer script by SHA-256.
+- `casaos_allow_unverified_installer` defaults to `false`, so installs fail closed unless a checksum is configured.
+
+Set `casaos_allow_unverified_installer: true` only when you explicitly accept the TLS-only upstream installer risk without a checksum.

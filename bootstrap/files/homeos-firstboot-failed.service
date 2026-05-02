@@ -1,0 +1,10 @@
+[Unit]
+Description=Record HomeOS first-boot bootstrap failure
+After=homeos-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'set -eu; mkdir -p /var/lib/homeos; { echo "timestamp=$(date -Is)"; systemctl show homeos-firstboot.service -p Result -p ExecMainStatus -p ExecMainCode -p NRestarts --no-pager 2>/dev/null || true; } > /var/lib/homeos/bootstrap-failed; chmod 0644 /var/lib/homeos/bootstrap-failed'
+
+[Install]
+WantedBy=multi-user.target

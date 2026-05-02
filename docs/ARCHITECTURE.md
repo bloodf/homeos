@@ -249,3 +249,9 @@ all GitHub pins in `bootstrap/vars/main.yml`, including the dedicated Hermes
 agent pin. Run it before tagging a release and commit the result. Tagged/manual
 CI builds verify committed pins rather than refreshing them, then attach ISOs and
 matching `.sha256` files; branch pushes and pull requests do not trigger ISO builds.
+
+## CLI and supply-chain additions
+
+The HomeOS CLI now includes `init`, `upgrade`, `log`, and `diag` top-level commands. `init` and mutating `upgrade` paths reuse the existing audited/gated subcommands. `log`, `diag`, and `upgrade --check` are read-only.
+
+Debian base ISO provenance is checked with a vendored Debian CD signing keyring and signed `SHA256SUMS` verification. CasaOS has explicit installer URL, optional checksum, and accepted-risk/fail-closed variables. Docker stack updates record pre-update image digests to support conservative rollback.

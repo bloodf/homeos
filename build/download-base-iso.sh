@@ -8,6 +8,7 @@ ARCH="${2:-amd64}"
 VERSION="13.4.0"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PINNED_SUMS="${ROOT}/build/debian-base-isos.sha256"
+DEBIAN_CD_KEYRING="${ROOT}/build/debian-cd-signing-key.gpg"
 case "$ARCH" in
 amd64 | arm64) ;;
 *)
@@ -43,10 +44,16 @@ if [ "$EXPECTED" != "$ACTUAL" ]; then
 	exit 1
 fi
 
-echo "[base-iso] fetching upstream SHA256SUMS for provenance cross-check"
+echo "[base-iso] fetching signed upstream SHA256SUMS for provenance cross-check"
 SUMS_URL="${MIRROR}/SHA256SUMS"
+SIG_URL="${SUMS_URL}.sign"
 SUMS_FILE="$(dirname "$OUT")/SHA256SUMS"
-curl -fSL --retry 3 -o "$SUMS_FILE" "$SUMS_URL"
+SIG_FILE="$(dirname "$OUT")/SHA256SUMS.sign"
+[ -s "$DEBIAN_CD_KEYRING" ] || { echo "[base-iso] missing Debian CD keyring: $DEBIAN_CD_KEYRING" >&2; exit 1; }
+command -v gpgv >/dev/null 2>&1 || { echo "[base-iso] gpgv required to verify SHA256SUMS.sign" >&2; exit 1; }
+curl -fSL --retry 3 --connect-timeout 15 --max-time 120 -o "$SUMS_FILE" "$SUMS_URL"
+curl -fSL --retry 3 --connect-timeout 15 --max-time 120 -o "$SIG_FILE" "$SIG_URL"
+gpgv --keyring "$DEBIAN_CD_KEYRING" "$SIG_FILE" "$SUMS_FILE"
 
 UPSTREAM="$(awk -v f="$FILE" '$2 == f { print $1 }' "$SUMS_FILE")"
 if [ -z "$UPSTREAM" ]; then

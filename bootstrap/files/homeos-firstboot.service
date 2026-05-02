@@ -3,6 +3,7 @@ Description=HomeOS first-boot bootstrap (Ansible)
 After=network-online.target multi-user.target
 Wants=network-online.target
 RequiresMountsFor=/opt/homeos
+OnFailure=homeos-firstboot-failed.service
 ConditionPathExists=!/var/lib/homeos/bootstrapped
 
 [Service]
@@ -12,10 +13,10 @@ StandardOutput=append:/var/log/homeos-bootstrap.log
 StandardError=append:/var/log/homeos-bootstrap.log
 Environment=ANSIBLE_LOCALHOST_WARNING=False
 Environment=ANSIBLE_INVENTORY_UNPARSED_WARNING=False
-ExecStartPre=/bin/sh -c 'mkdir -p /var/lib/homeos; echo "==== homeos-firstboot service start $(date -Is) ===="'
+ExecStartPre=/bin/sh -c 'mkdir -p /var/lib/homeos; rm -f /var/lib/homeos/bootstrap-failed; echo "==== homeos-firstboot service start $(date -Is) ===="'
 ExecStartPre=/usr/bin/ansible-galaxy collection install -r /opt/homeos/bootstrap/requirements.yml
 ExecStart=/usr/bin/ansible-playbook -i localhost, -c local /opt/homeos/bootstrap/install.yml
-ExecStartPost=/bin/sh -c 'echo "==== homeos-firstboot service success $(date -Is) ===="; systemctl disable homeos-firstboot.service'
+ExecStartPost=/bin/sh -c 'rm -f /var/lib/homeos/bootstrap-failed; echo "==== homeos-firstboot service success $(date -Is) ===="; systemctl disable homeos-firstboot.service'
 TimeoutStartSec=0
 
 [Install]

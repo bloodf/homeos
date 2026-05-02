@@ -273,3 +273,23 @@ Built on the work of:
 - Tailscale, Caddy, Docker, NodeSource
 - Anthropic, OpenAI, Google, Cursor, sst, Moonshot — for the AI CLIs
 - Authors of the 10 bundled GitHub tools (see [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md))
+
+### Day-2 guided operations
+
+After installation and firstboot completion:
+
+```bash
+homeos diag
+sudo homeos init
+homeos upgrade --check
+sudo homeos upgrade
+homeos log firstboot --lines 200
+```
+
+The CLI also supports backup verification and stack rollback:
+
+```bash
+sudo homeos config backup verify --read-data-subset 5%
+homeos config stack digests jellyfin
+sudo homeos config stack rollback jellyfin
+```

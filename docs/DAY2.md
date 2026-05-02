@@ -240,3 +240,89 @@ Every command is safe to run twice:
 | `sudo homeos config secrets set K=V` | overwrites existing value through the audit gate |
 | `homeos config rerun-bootstrap`      | full idempotent reapply                          |
 | `homeos secure`                      | no-op (password already locked)                  |
+
+## Guided first run, diagnostics, and logs
+
+After first SSH and firstboot completion, run the guided CLI flow:
+
+```bash
+sudo homeos init
+```
+
+Useful non-mutating previews:
+
+```bash
+homeos init --dry-run
+homeos upgrade --check
+homeos diag
+homeos log firstboot --lines 200
+```
+
+`homeos init` orchestrates existing audited commands instead of writing parallel config: `secure`, Tailscale setup, secrets, NAS, and backup target setup. Use `--skip-secure`, `--skip-tailscale`, `--skip-secrets`, `--skip-nas`, or `--skip-backup` to defer steps. `--auth-key`, `--nas-device`, and `--backup-target` allow explicit non-secret inputs. Secret prompts do not echo values.
+
+`homeos diag` is read-only triage with next-action suggestions. `homeos doctor` remains the stricter smoke test and exits non-zero when required services are unavailable.
+
+`homeos log` supports common local targets:
+
+```bash
+homeos log summary
+homeos log bootstrap --lines 200
+homeos log firstboot --follow
+homeos log backup --lines 100
+homeos log docker
+homeos log stack:jellyfin --lines 100
+```
+
+## Routine upgrades
+
+Run a read-only preview first:
+
+```bash
+homeos upgrade --check
+```
+
+Then apply routine maintenance:
+
+```bash
+sudo homeos upgrade
+```
+
+The command runs `apt-get update && apt-get upgrade -y`, updates Linuxbrew when installed, records stack image digests, preflights free disk space, pulls Docker images, recreates stacks, and then runs `homeos doctor`. It does not run `full-upgrade`, Debian release upgrades, firmware migrations, or reboot automation. Use `--skip-apt`, `--skip-docker`, `--skip-brew`, or `--skip-doctor` to narrow scope.
+
+## Backup verification and free-space preflight
+
+Manual verification:
+
+```bash
+sudo homeos config backup verify
+sudo homeos config backup verify --read-data-subset 5%
+```
+
+HomeOS also installs `/usr/local/sbin/homeos-backup-verify` and runs it weekly via cron. Local backup runs check free space before mutation:
+
+- `HOMEOS_BACKUP_REPO_MIN_FREE_MIB` defaults to `10240` for local restic repositories.
+- `HOMEOS_RESTIC_CACHE_MIN_FREE_MIB` defaults to `1024` for restic cache space.
+- Remote repository capacity cannot be checked locally; the command prints that limitation.
+
+## Stack digest snapshots and rollback
+
+Before `homeos config stack update NAME` or `homeos upgrade` updates a stack, HomeOS records a pre-update image snapshot in `/var/lib/homeos/stack-digests`.
+
+```bash
+sudo homeos config stack update jellyfin
+homeos config stack digests jellyfin
+sudo homeos config stack rollback jellyfin
+sudo homeos config stack rollback jellyfin /var/lib/homeos/stack-digests/jellyfin-YYYYMMDDTHHMMSSZ.json
+```
+
+Rollback pins compose `image:` values to recorded immutable `repo@sha256:...` digests when all services have repo digests. It intentionally fails closed for local-only or digestless images and does not roll back persistent volumes, databases, app migrations, or compose environment changes.
+
+## Firstboot failure sentinel
+
+If firstboot fails, systemd writes `/var/lib/homeos/bootstrap-failed`. `homeos status`, `homeos doctor`, and `homeos diag` surface the failure and point to:
+
+```bash
+sudo systemctl status homeos-firstboot.service
+sudo homeos log firstboot --lines 200
+sudo tail -n 200 /var/log/homeos-bootstrap.log
+```

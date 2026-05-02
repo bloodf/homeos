@@ -40,6 +40,7 @@
     - /var/lib/homeos
     - /var/lib/homeos/installed.d
     - /var/lib/homeos/pending
+    - /var/lib/homeos/stack-digests
 
 - name: Root-only audit replay sidecar dir
   ansible.builtin.file:

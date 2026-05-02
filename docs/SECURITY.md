@@ -177,7 +177,6 @@ services.
 | AI CLIs (npm/corepack/brew)                 | moving package channel at install time                                   | Registry/tap transport trust; recorded as accepted moving-channel risk.                                                |
 | AI CLIs and shell tools from installer URLs | reviewed URL, optional SHA256 field for `ai_clis_curl` entries           | Download to a temp file before execution; TLS-only where upstream does not publish stable checksums.                   |
 
-
 Internal ISO integrity note: `build/repack-iso.sh` regenerates Debian installer
 `md5sum.txt` because that file is a Debian ISO compatibility artifact. It is not
 treated as a cryptographic security boundary; release verification relies on the
@@ -227,3 +226,9 @@ reboot
 - Sigstore-style signed release manifests for `make iso` reproducibility.
 - Optional LUKS for disk encryption when hardware key is present (TPM /
   Yubikey).
+
+## Additional supply-chain and rollback hardening
+
+- Debian base ISO downloads now fetch `SHA256SUMS` plus `SHA256SUMS.sign` and verify the signed manifest with a vendored Debian CD signing keyring before comparing the committed ISO checksum pin.
+- CasaOS distinguishes the pinned `casaos_version` from installer trust. Operators can set `casaos_installer_sha256` for verified installs. Without a checksum, the default is fail-closed; set `casaos_allow_unverified_installer: true` only to explicitly accept the TLS-only installer risk.
+- Docker stack updates record pre-update image IDs and repo digests under `/var/lib/homeos/stack-digests`. Rollback can pin generated compose files to recorded immutable digests when all services have repo digests. Rollback does not revert volumes, databases, app migrations, or non-image compose changes.

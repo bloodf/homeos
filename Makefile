@@ -42,7 +42,13 @@ check-static: ## run non-VM static policy checks
 	  bootstrap/roles/homeos-cli/files/homeos-audit-prune \
 	  bootstrap/roles/portal/templates/launch.sh.j2
 	@echo "[check] Python syntax"
-	python3 -m py_compile build/check-yaml.py build/check-markers.py
+	python3 -m py_compile build/check-yaml.py build/check-markers.py build/check-supply-chain.py
+	@echo "[check] CLI UX harness"
+	bash build/test-homeos-cli-ux.sh
+	@echo "[check] stack snapshot harness"
+	bash build/test-homeos-stack-snapshots.sh
+	@echo "[check] supply-chain policy"
+	python3 build/check-supply-chain.py
 	@echo "[check] YAML parse"
 	python3 build/check-yaml.py
 	@echo "[check] forbidden marker strings"

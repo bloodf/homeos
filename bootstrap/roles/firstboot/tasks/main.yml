@@ -1,13 +1,16 @@
 ---
-- name: Install firstboot service unit
+- name: Install firstboot service units
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/files/homeos-firstboot.service"
-    dest: /etc/systemd/system/homeos-firstboot.service
+    src: "{{ playbook_dir }}/files/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
     mode: '0644'
     remote_src: true
+  loop:
+    - homeos-firstboot.service
+    - homeos-firstboot-failed.service
   failed_when: false
 
-- name: Reload systemd for firstboot unit
+- name: Reload systemd for firstboot units
   ansible.builtin.systemd:
     daemon_reload: true
   failed_when: false

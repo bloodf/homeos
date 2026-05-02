@@ -288,3 +288,34 @@ sudo systemctl status caddy docker cockpit.socket casaos tailscaled \
 ```
 
 Attach those four files to the issue.
+
+## Unified diagnostics and logs
+
+Start with:
+
+```bash
+homeos diag
+homeos log firstboot --lines 200
+homeos log backup --lines 100
+homeos log docker --lines 100
+homeos log stack:jellyfin --lines 100
+```
+
+Raw fallbacks remain useful if the CLI itself is unavailable:
+
+```bash
+sudo journalctl -u homeos-firstboot.service -e
+sudo tail -n 200 /var/log/homeos-bootstrap.log
+sudo tail -n 100 /var/log/homeos-backup.log
+```
+
+## Recover from a bad stack image update
+
+List recorded pre-update image snapshots and roll back to the latest safe digest set:
+
+```bash
+homeos config stack digests <name>
+sudo homeos config stack rollback <name>
+```
+
+HomeOS writes a compose backup next to `/opt/stacks/<name>/docker-compose.yml` before rewriting images. Rollback fails closed when a service lacks an immutable repo digest.

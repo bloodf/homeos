@@ -10,6 +10,9 @@ hermes_agent_ref: "f903ceece034eb8f27b03d241c1f14eafca6c5ea"
 tailnet_host: "homeos.example.ts.net"
 
 casaos_version: "v0.4.15"   # bump after manual smoke-test
+casaos_installer_url: "https://get.casaos.io"
+casaos_installer_sha256: ""   # optional sha256 of installer script
+casaos_allow_unverified_installer: false  # set true only to explicitly accept TLS-only installer risk when checksum is empty
 
 tailscale_channel: "stable"
 

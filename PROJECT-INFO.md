@@ -402,3 +402,7 @@ older `HANDOFF.md` QEMU-per-tag guidance for those milestones.
   `bootstrap/installers/<feat>.sh`.
 - **Toggle** — flag-file at `/var/lib/homeos/<feat>.enabled` plus
   systemd/compose lifecycle.
+
+## Current CLI surface additions
+
+The day-2 `homeos` CLI includes guided and diagnostic top-level commands: `init`, `upgrade`, `log`, and `diag`, alongside existing `status`, `doctor`, `secure`, `config`, `install`, and `audit` commands. Stack updates record digest snapshots, backups can be verified with `homeos config backup verify`, and firstboot failures are surfaced via `/var/lib/homeos/bootstrap-failed`.

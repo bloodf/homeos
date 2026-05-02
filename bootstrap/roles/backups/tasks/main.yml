@@ -46,10 +46,42 @@
       source /etc/homeos/backup.env
       [ -n "${RESTIC_REPOSITORY:-}" ] || { echo "RESTIC_REPOSITORY unset; skipping"; exit 0; }
       export RESTIC_REPOSITORY RESTIC_PASSWORD_FILE
+
+      nearest_existing_parent() {
+        local path="$1"
+        while [ ! -e "$path" ] && [ "$path" != "/" ]; do path="$(dirname "$path")"; done
+        printf '%s\n' "$path"
+      }
+      require_free_mib() {
+        local path="$1" need="$2" label="$3" parent avail
+        parent="$(nearest_existing_parent "$path")"
+        avail="$(df -Pm "$parent" | awk 'NR==2 {print $4}')"
+        [ "${avail:-0}" -ge "$need" ] || { echo "not enough free space on $label ($parent): ${avail:-unknown}MiB available, ${need}MiB required" >&2; exit 1; }
+      }
+      require_free_mib "${RESTIC_CACHE_DIR:-/root/.cache/restic}" "${HOMEOS_RESTIC_CACHE_MIN_FREE_MIB:-1024}" "restic cache"
+      case "$RESTIC_REPOSITORY" in
+        /*) require_free_mib "$RESTIC_REPOSITORY" "${HOMEOS_BACKUP_REPO_MIN_FREE_MIB:-10240}" "local restic repository" ;;
+        *) echo "remote restic repository capacity cannot be verified locally: $RESTIC_REPOSITORY" ;;
+      esac
+
       restic snapshots >/dev/null 2>&1 || restic init
       # shellcheck disable=SC2086
       restic backup --exclude-caches $BACKUP_PATHS
       restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+
+- name: Backup verification script
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/homeos-backup-verify
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      [ -f /etc/homeos/backup.env ] || { echo "no backup.env"; exit 0; }
+      # shellcheck disable=SC1091
+      source /etc/homeos/backup.env
+      [ -n "${RESTIC_REPOSITORY:-}" ] || { echo "RESTIC_REPOSITORY unset; skipping"; exit 0; }
+      export RESTIC_REPOSITORY RESTIC_PASSWORD_FILE
+      restic check
 
 - name: Daily backup cron
   ansible.builtin.cron:
@@ -57,3 +89,11 @@
     minute: "30"
     hour: "2"
     job: "/usr/local/sbin/homeos-backup >> /var/log/homeos-backup.log 2>&1"
+
+- name: Weekly backup verification cron
+  ansible.builtin.cron:
+    name: homeos-backup-verify
+    minute: "30"
+    hour: "4"
+    weekday: "0"
+    job: "/usr/local/sbin/homeos-backup-verify >> /var/log/homeos-backup-verify.log 2>&1"

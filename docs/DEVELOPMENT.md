@@ -205,3 +205,7 @@ PRs welcome. See README → "Building from source" for the build loop. Please:
 - Run `make iso` locally before opening a PR.
 - Note any new outbound network dependencies in [HARDWARE.md](HARDWARE.md).
 - Update the relevant doc in `docs/`.
+
+## Base ISO provenance checks
+
+`make base-iso` requires `gpgv` and the committed `build/debian-cd-signing-key.gpg`. The downloader verifies Debian `SHA256SUMS.sign` before trusting the upstream checksum manifest, then compares the signed manifest to `build/debian-base-isos.sha256`.
