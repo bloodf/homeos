@@ -34,6 +34,7 @@ LAN allowlist (TCP):
 - 80 / 443 (Caddy)
 - 81 (CasaOS UI)
 - 445 (Samba SMB)
+- 139 (Samba NetBIOS session)
 - 2049 (NFS)
 - 8123 (Home Assistant)
 - 8096 (Jellyfin)
@@ -175,6 +176,12 @@ services.
 | GitHub tools                                | commit SHA per repo plus `hermes_agent_ref` in `bootstrap/vars/main.yml` | `make pin-tools` resolves each configured GitHub repo `HEAD` and refuses partial writes.                               |
 | AI CLIs (npm/corepack/brew)                 | moving package channel at install time                                   | Registry/tap transport trust; recorded as accepted moving-channel risk.                                                |
 | AI CLIs and shell tools from installer URLs | reviewed URL, optional SHA256 field for `ai_clis_curl` entries           | Download to a temp file before execution; TLS-only where upstream does not publish stable checksums.                   |
+
+
+Internal ISO integrity note: `build/repack-iso.sh` regenerates Debian installer
+`md5sum.txt` because that file is a Debian ISO compatibility artifact. It is not
+treated as a cryptographic security boundary; release verification relies on the
+external `.iso.sha256` assets and the pinned base ISO SHA256 manifest.
 
 Release artifacts include `*.iso.sha256`. Verify after download with:
 

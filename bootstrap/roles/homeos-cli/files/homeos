@@ -25,8 +25,10 @@ need_root() { [ "$(id -u)" -eq 0 ] || err "run with sudo"; }
 hash12() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum | head -c 12
-  else
+  elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | head -c 12
+  else
+    err "sha256sum or shasum required"
   fi
 }
 
@@ -108,7 +110,6 @@ if sidecar_id:
   entry['sidecar_id'] = sidecar_id
 print(json.dumps(entry, sort_keys=True))
 PY
-  chmod 0644 "$AUDIT_LOG"
 }
 
 # ---------- AI review gate ----------
@@ -338,16 +339,18 @@ cmd_nas() {
       fstype="$(blkid -s TYPE -o value "$dev")"
       label="$(blkid -s LABEL -o value "$dev" || true)"
       [ -n "$label" ] || label="nas-$(echo "$uuid" | tr -d - | head -c8)"
+      label="$(python3 -c 'import re,sys; print(re.sub(r"[^A-Za-z0-9_.-]+", "-", sys.argv[1]).strip(".-") or "nas")' "$label")"
       [ -n "$uuid" ] || err "no UUID for $dev"
       gate "nas:add" "device=$dev uuid=$uuid label=$label fstype=$fstype" true
-      python3 - <<PY
-import yaml, pathlib
-p = pathlib.Path("$NAS_VARS")
+      python3 - "$NAS_VARS" "$uuid" "$label" "$fstype" <<'PY'
+import pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+uuid, label, fstype = sys.argv[2:5]
 data = yaml.safe_load(p.read_text()) or {}
 disks = data.setdefault("nas_disks", []) or []
-if not any(d.get("uuid")=="$uuid" for d in disks):
-    disks.append({"uuid":"$uuid","label":"$label","fstype":"$fstype"})
-data["nas_disks"]=disks
+if not any(d.get("uuid") == uuid for d in disks):
+    disks.append({"uuid": uuid, "label": label, "fstype": fstype})
+data["nas_disks"] = disks
 p.write_text(yaml.safe_dump(data, sort_keys=False))
 PY
       ansible-playbook -i localhost, -c local "$HOMEOS_ROOT/bootstrap/install.yml" --tags nas || \
@@ -358,11 +361,12 @@ PY
       need_root
       local label="${1:?label required}"
       gate "nas:remove" "label=$label (drops mount + share)" true
-      python3 - <<PY
-import yaml, pathlib
-p = pathlib.Path("$NAS_VARS")
+      python3 - "$NAS_VARS" "$label" <<'PY'
+import pathlib, sys, yaml
+p = pathlib.Path(sys.argv[1])
+label = sys.argv[2]
 data = yaml.safe_load(p.read_text()) or {}
-data["nas_disks"] = [d for d in (data.get("nas_disks") or []) if d.get("label")!="$label"]
+data["nas_disks"] = [d for d in (data.get("nas_disks") or []) if d.get("label") != label]
 p.write_text(yaml.safe_dump(data, sort_keys=False))
 PY
       systemctl disable --now "srv-nas-${label}.mount" 2>/dev/null || true

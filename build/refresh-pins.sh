@@ -12,10 +12,13 @@ VARS_FILE="${ROOT}/bootstrap/vars/main.yml"
 WRITE=0
 CHECK=0
 case "${1:-}" in
-	--write) WRITE=1 ;;
-	--check) CHECK=1 ;;
-	"") ;;
-	*) echo "usage: refresh-pins.sh [--write|--check]" >&2; exit 2 ;;
+--write) WRITE=1 ;;
+--check) CHECK=1 ;;
+"") ;;
+*)
+	echo "usage: refresh-pins.sh [--write|--check]" >&2
+	exit 2
+	;;
 esac
 
 # tool name -> repo. Names must match either github_tools[].name or the
@@ -41,8 +44,8 @@ missing=()
 for entry in "${tools[@]}"; do
 	name="${entry%%|*}"
 	repo="${entry##*|}"
-	body="$(curl -fsSL "${GH_AUTH[@]}" "https://api.github.com/repos/${repo}/commits/HEAD" || true)"
-	sha="$(printf '%s' "$body" | awk -F'\"' '/\"sha\":/ {print $4; exit}')"
+	body="$(curl --retry 3 --connect-timeout 10 --max-time 30 -fsSL "${GH_AUTH[@]}" "https://api.github.com/repos/${repo}/commits/HEAD" || true)"
+	sha="$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sha", ""))' 2>/dev/null || true)"
 	case "$sha" in
 	[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
 	*)

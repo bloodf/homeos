@@ -31,6 +31,16 @@
   loop: "{{ nas_disks }}"
   when: nas_disks | length > 0
 
+- name: Capture admin uid/gid
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ admin_user }}"
+
+- name: Set admin uid/gid facts
+  ansible.builtin.set_fact:
+    admin_user_uid: "{{ getent_passwd[admin_user][1] }}"
+    admin_user_gid: "{{ getent_passwd[admin_user][2] }}"
+
 - name: Render NAS udev rules
   ansible.builtin.template:
     src: 99-homeos-nas.rules.j2

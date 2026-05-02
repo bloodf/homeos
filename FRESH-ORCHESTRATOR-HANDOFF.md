@@ -1,5 +1,9 @@
 # Fresh Orchestrator Agent Handoff
 
+> Historical note: this handoff was created before the v0.5-v0.9 release train.
+> v0.5.0 through v0.9.0 have since shipped; use `ROADMAP-TO-0.9.md`,
+> `HANDOFF-LOG.md`, and `docs/V1-FINAL-VALIDATION.md` for current state.
+
 You are the fresh orchestrator agent for HomeOS.
 
 Repo:
@@ -7,9 +11,9 @@ Repo:
 - Path: `/Users/heitor/Developer/github.com/bloodf/homeos`
 - Origin: `https://github.com/bloodf/homeos`
 - Current HEAD at handoff: `35e10c8`
-- Latest pushed/released tag: `v0.4.0`
-- Existing tags: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`
-- v0.5 implementation is committed locally in history, but `v0.5.0` is not tagged/released yet.
+- Latest pushed/released tag when this handoff was written: `v0.4.0`
+- Existing tags when this handoff was written: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`
+- Current status: v0.5.0 through v0.9.0 are now tagged/released; v1.0 final validation remains pending.
 - Current known unrelated dirty local state may include `.omc/`, `.claude/`, `.pi/`, `.pi-lens/`; ignore/exclude those unless user explicitly asks.
 
 Important policy update:
@@ -37,8 +41,7 @@ Core files:
 - `SUBAGENT-PROMPTS-TO-0.9.md` — ready-to-copy worker/reviewer prompts.
 - `HANDOFF.md` — historical/background only; do not follow its per-tag QEMU requirement for v0.5-v0.9.
 - `HANDOFF-LOG.md` — append timestamped progress/release evidence.
-- `release-notes/v0.5.0.md` exists.
-- `release-notes/v0.6.0.md+` still need to be created as milestones land.
+- `release-notes/v0.5.0.md` through `release-notes/v0.9.0.md` now exist.
 
 Workflow:
 
@@ -51,31 +54,22 @@ Workflow:
 7. Keep commits atomic and conventional.
 8. Never add AI attribution footers or co-author lines.
 
-Current milestone status:
+Current milestone status at archival:
 
-- v0.4.0: released.
-- v0.5.0: Cosmos Docker socket shim implemented and reviewed, but not yet tagged/released.
-  - Need final orchestrator verification from static checks/review, then commit any roadmap checkbox updates if needed, tag, release, watch CI.
-- v0.6.0: audit replay not implemented.
-- v0.7.0: bootstrap fixes not implemented.
-- v0.8.0: security/supply-chain/docs/CI hardening not implemented.
-- v0.9.0: release candidate polish not implemented.
-- v1.0.0: final visible full QEMU validation only, done after v0.9.
+- v0.4.0 through v0.9.0: released.
+- v1.0.0: final visible full QEMU validation only, pending explicit user start.
 
-Immediate next steps:
+Current next steps:
 
 1. Read:
    - `ROADMAP-TO-0.9.md`
-   - `SUBAGENT-PROMPTS-TO-0.9.md`
    - `HANDOFF-LOG.md`
+   - `docs/V1-FINAL-VALIDATION.md`
+   - `V1-QEMU-TESTING-PROMPT.md`
    - `git status --short`
-2. Start with v0.5 release finalization.
-3. Use the v0.5 prompts from `SUBAGENT-PROMPTS-TO-0.9.md`.
-4. Ensure workers mark v0.5 checklist items in `ROADMAP-TO-0.9.md`.
-5. Review diff.
-6. You commit/tag/release `v0.5.0`.
-7. Repeat for v0.6, v0.7, v0.8, v0.9.
-8. Do not run QEMU until v1.0 testing prompt is explicitly invoked by user.
+2. Wait for the user to explicitly start v1.0 validation.
+3. When v1.0 starts, run the visible final QEMU validation from the v1.0 checklist.
+4. Do not create `v1.0.0` until the visible validation passes.
 
 Validation before each pre-v1.0 release:
 

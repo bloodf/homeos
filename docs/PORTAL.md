@@ -41,9 +41,10 @@ means up, absent means down.
 | Hermes Agent | `/term/hermes/` | `/usr/local/bin/hermes` (7687) |
 | Shell | `/term/shell/` | `bash -i` as admin (7688) |
 
-ttyd containers run `network_mode: host` so they see admin's PATH
-(Node, brew, AI CLIs). Secrets bind-mounted read-only at `/secrets.env`;
-launcher sources them before exec'ing the CLI.
+ttyd containers bind only to `127.0.0.1:7681-7688` and are reachable
+through Caddy `/term/<name>/` routes. They do not use host networking. Secrets
+are bind-mounted read-only at `/secrets.env`; launcher sources them before
+exec'ing the CLI.
 
 ## Architecture
 

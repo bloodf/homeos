@@ -8,7 +8,7 @@
 | Mini PC (N100/N305)                   | Beelink S12, GMKtec NucBox | ✅ full support, QSV works                                                 |
 | Custom build (i3/i5 12th-gen+ + iGPU) | DIY                        | ✅ full support                                                            |
 | Old laptop, x86_64                    | ThinkPad T480, X1          | ✅ works (no QSV on Gen 8 and older)                                       |
-| Raspberry Pi 5 (arm64)                | RPi5 8 GB                  | ⚠️ boots, no GPU transcoding                                               |
+| Raspberry Pi 5 (arm64)                | RPi5 8 GB                  | ⚠ boots, no GPU transcoding                                               |
 | Apple Silicon Mac                     | (via UTM/QEMU)             | ❌ ISO doesn't apply — use the arm64 build for native arm64 boards instead |
 
 ## Minimum

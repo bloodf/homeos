@@ -11,3 +11,6 @@ build/cache/
 .omc/
 .pi/
 .pi-lens/
+__pycache__/
+subagent-review-*.md
+progress.md

@@ -1,4 +1,4 @@
 # HomeOS NFS exports — LAN only.
 {% for d in nas_disks %}
-/srv/nas/{{ d.label }}  192.168.0.0/16(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
+/srv/nas/{{ d.label }}  192.168.0.0/16(rw,sync,no_subtree_check,all_squash,anonuid={{ admin_user_uid | default(1000) }},anongid={{ admin_user_gid | default(1000) }})
 {% endfor %}

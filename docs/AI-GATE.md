@@ -173,3 +173,6 @@ HOMEOS_NO_REVIEW=1 sudo homeos config rerun-bootstrap
 - v0.4.0 — gate on nas, secrets, stack, plus Cosmos bypass-warn audit mirror
 - v0.5.0 — Cosmos Docker socket shim emits BYPASS audit entries
 - v0.6.0 — `homeos audit replay <id>` to re-run a past intent
+- v0.7.0 — bootstrap reliability fixes and secure-mode diagnostics
+- v0.8.0 — security, supply-chain, docs, and CI hardening
+- v0.9.0 — release-candidate polish and v1.0 final validation checklist

@@ -35,7 +35,7 @@ services:
       - /srv/portal/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: "*"
+      HOMEPAGE_ALLOWED_HOSTS: "portal.{{ tailnet_host | default('homeos.example.ts.net') }},localhost,127.0.0.1"
       LOG_LEVEL: info
 
   # ─── Chat UI for AI APIs (non-tech users) ───────────────────────────────

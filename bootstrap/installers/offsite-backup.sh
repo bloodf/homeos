@@ -5,6 +5,31 @@ ENV=/etc/homeos/backup.env
 mkdir -p /etc/homeos
 touch "$ENV"; chmod 600 "$ENV"
 
+reject_newline() {
+  case "$2" in
+    *$'\n'*|*$'\r'*) echo "invalid $1: newlines are not allowed" >&2; exit 1 ;;
+  esac
+}
+
+set_env() {
+  local key="$1" value="$2"
+  reject_newline "$key" "$value"
+  python3 - "$ENV" "$key" "$value" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+key, value = sys.argv[2:4]
+lines = path.read_text().splitlines() if path.exists() else []
+entry = f"{key}={value}"
+for index, line in enumerate(lines):
+    if line.startswith(f"{key}="):
+        lines[index] = entry
+        break
+else:
+    lines.append(entry)
+path.write_text("\n".join(lines) + "\n")
+PY
+}
+
 echo "== offsite backup =="
 echo "  1) Backblaze B2"
 echo "  2) Storj"
@@ -18,52 +43,46 @@ case "$c" in
     read -r -p "B2 account ID: " id
     read -r -s -p "B2 application key: " key; echo
     read -r -p "bucket: " bucket
-    cat >>"$ENV" <<EOF
-RESTIC_REPOSITORY_OFFSITE=b2:${bucket}
-B2_ACCOUNT_ID=${id}
-B2_ACCOUNT_KEY=${key}
-EOF
+    set_env RESTIC_REPOSITORY_OFFSITE "b2:${bucket}"
+    set_env B2_ACCOUNT_ID "$id"
+    set_env B2_ACCOUNT_KEY "$key"
     ;;
   2)
     read -r -p "Storj access grant: " grant
     read -r -p "bucket: " bucket
     apt-get install -y rclone || true
-    cat >>"$ENV" <<EOF
-RESTIC_REPOSITORY_OFFSITE=rclone:storj:${bucket}
-RCLONE_CONFIG_STORJ_TYPE=storj
-RCLONE_CONFIG_STORJ_ACCESS_GRANT=${grant}
-EOF
+    set_env RESTIC_REPOSITORY_OFFSITE "rclone:storj:${bucket}"
+    set_env RCLONE_CONFIG_STORJ_TYPE storj
+    set_env RCLONE_CONFIG_STORJ_ACCESS_GRANT "$grant"
     ;;
   3)
     read -r -p "user@host:port (e.g. u123@u123.your-storagebox.de:23): " sb
     read -r -p "remote path [/homeos]: " path; path="${path:-/homeos}"
-    cat >>"$ENV" <<EOF
-RESTIC_REPOSITORY_OFFSITE=sftp:${sb}:${path}
-EOF
+    [[ "$path" == /* ]] || { echo "remote path must be absolute" >&2; exit 1; }
+    set_env RESTIC_REPOSITORY_OFFSITE "sftp:${sb}:${path}"
     ;;
   4)
     read -r -p "S3 endpoint (e.g. https://s3.eu-central-1.amazonaws.com): " ep
     read -r -p "bucket: " bucket
     read -r -p "AWS_ACCESS_KEY_ID: " ak
     read -r -s -p "AWS_SECRET_ACCESS_KEY: " sk; echo
-    cat >>"$ENV" <<EOF
-RESTIC_REPOSITORY_OFFSITE=s3:${ep}/${bucket}
-AWS_ACCESS_KEY_ID=${ak}
-AWS_SECRET_ACCESS_KEY=${sk}
-EOF
+    set_env RESTIC_REPOSITORY_OFFSITE "s3:${ep}/${bucket}"
+    set_env AWS_ACCESS_KEY_ID "$ak"
+    set_env AWS_SECRET_ACCESS_KEY "$sk"
     ;;
   5)
     apt-get install -y rclone || true
     echo "run: rclone config — then re-run this installer w/ --reconfigure"
     read -r -p "rclone remote name: " rem
+    [[ "$rem" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo "invalid remote name" >&2; exit 1; }
     read -r -p "remote path: " p
-    echo "RESTIC_REPOSITORY_OFFSITE=rclone:${rem}:${p}" >> "$ENV"
+    set_env RESTIC_REPOSITORY_OFFSITE "rclone:${rem}:${p}"
     ;;
   *) echo "invalid"; exit 1 ;;
 esac
 
 read -r -s -p "RESTIC_PASSWORD (offsite): " pw; echo
-echo "RESTIC_PASSWORD_OFFSITE=${pw}" >> "$ENV"
+set_env RESTIC_PASSWORD_OFFSITE "$pw"
 chmod 600 "$ENV"
 
 # Init repo

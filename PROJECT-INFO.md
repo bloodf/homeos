@@ -3,9 +3,9 @@
 > Living document for any agent (or human) joining the project. Captures
 > what HomeOS is, every release shipped, every decision locked, every
 > file that exists, and where the work currently stands. Pair with
-> `HANDOFF.md` (mission brief for v0.4 → v0.6).
+> `HANDOFF.md` and `ROADMAP-TO-0.9.md` for historical release context.
 
-Last updated: 2026-05-01 — at tag `v0.3.0`.
+Last updated: 2026-05-02 — after tag `v0.9.0`.
 
 ---
 

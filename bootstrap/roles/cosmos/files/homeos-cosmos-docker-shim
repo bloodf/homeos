@@ -458,7 +458,7 @@ def main() -> int:
 
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(str(LISTEN_SOCK))
-    os.chmod(LISTEN_SOCK, 0o660)
+    os.chmod(LISTEN_SOCK, 0o600)
     server.listen(128)
     server.settimeout(1)
     log(f"listening on {LISTEN_SOCK}, forwarding to {UPSTREAM_SOCK}")

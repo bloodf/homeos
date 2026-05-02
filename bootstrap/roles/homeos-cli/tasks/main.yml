@@ -75,7 +75,7 @@
           compress
           missingok
           notifempty
-          copytruncate
+          create 0644 root root
       }
 
 - name: Audit replay sidecar prune service
