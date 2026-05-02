@@ -247,6 +247,7 @@ hardening checklist.
 | Doc                                                        | When to read                           |
 | ---------------------------------------------------------- | -------------------------------------- |
 | [docs/INSTALL.md](docs/INSTALL.md)                         | First time installing on real hardware |
+| [docs/PORTABLE-INSTALLER.md](docs/PORTABLE-INSTALLER.md)   | Install onto an existing Linux distro  |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | Understanding how it all fits together |
 | [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md)                     | Customizing what gets installed        |
 | [docs/DAY2.md](docs/DAY2.md)                               | Full `homeos` CLI reference            |
