@@ -35,6 +35,44 @@ Other distros refuse to run unless `--force-unsupported` is passed.
 
 ## Usage
 
+### One-liner (remote SSH, no clone needed)
+
+Paste into an SSH session on the target box:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/install/bootstrap.sh | sudo bash
+```
+
+Forward arguments to the installer with `bash -s --`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/install/bootstrap.sh \
+  | sudo bash -s -- --mode adopt --profile server --yes
+```
+
+Bootstrap behavior:
+
+- Installs `git` if missing (`apt`/`dnf`/`yum`).
+- Clones the repo to `/opt/homeos` (or updates an existing checkout).
+- Execs `install/homeos-install.sh --source /opt/homeos "$@"`.
+
+Environment overrides:
+
+| Variable      | Default                                 | Purpose                  |
+| ------------- | --------------------------------------- | ------------------------ |
+| `HOMEOS_REPO` | `https://github.com/bloodf/homeos.git`  | Git remote               |
+| `HOMEOS_REF`  | `main`                                  | Branch / tag / commit    |
+| `HOMEOS_DIR`  | `/opt/homeos`                           | Local checkout directory |
+
+Example pinning a release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/install/bootstrap.sh \
+  | sudo HOMEOS_REF=v0.3.0 bash -s -- --mode appliance --profile full --yes --confirm-appliance
+```
+
+### Local checkout
+
 Interactive menu:
 
 ```bash

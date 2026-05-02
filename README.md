@@ -33,6 +33,18 @@ oh-my-opencode, oh-my-claudecode, claude-mem).
 
 ## Quick start
 
+### Already running Linux? One-liner install
+
+Add HomeOS to an existing Debian/Ubuntu/Fedora/RHEL box without cloning:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/install/bootstrap.sh | sudo bash
+```
+
+See [docs/PORTABLE-INSTALLER.md](docs/PORTABLE-INSTALLER.md) for modes, profiles, and flags.
+
+### Build the ISO
+
 ```bash
 # 1. (optional) bake your SSH pubkey into the ISO — skip this for a public build
 cp ~/.ssh/id_ed25519.pub secrets/authorized_keys
