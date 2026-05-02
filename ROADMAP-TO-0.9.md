@@ -182,14 +182,14 @@ Goal: make v0.9 the last feature/hardening milestone before v1.0 final full QEMU
 - [x] Run `ansible-playbook --syntax-check bootstrap/install.yml` if Ansible is installed; otherwise record why skipped — evidence: `ansible-playbook unavailable; syntax check skipped`, 2026-05-02.
 - [x] Run targeted harnesses for audit replay and Cosmos shim without QEMU — evidence: temp-log harness covered `homeos audit show`, `homeos audit replay`, `homeos audit cosmos-events`, and Cosmos shim Python syntax/static BYPASS checks, 2026-05-02.
 - [x] Orchestrator-controlled: verify `make iso` builds locally when Docker is available; workers may propose this check but must not run it unless explicitly assigned — evidence: local ISO build deliberately not run for v0.9; tag/manual GitHub Actions remains artifact build gate, 2026-05-02.
-- [ ] Verify GitHub Actions build artifacts attach to release on tag.
+- [x] Verify GitHub Actions build artifacts attach to release on tag — evidence: v0.9.0 run `25238707065` passed and release has amd64/arm64 ISO plus `.sha256` assets, 2026-05-02.
 
 ### v1.0 readiness package
 
 - [x] Create `release-notes/v0.9.0.md` with RC scope and known limitations — evidence: release notes added with CI policy, limitations, and validation scope, 2026-05-02.
 - [x] Create or update a v1.0 final validation checklist that the orchestrator can run later — evidence: `docs/V1-FINAL-VALIDATION.md` added and `V1-QEMU-TESTING-PROMPT.md` points to it, 2026-05-02.
 - [x] Ensure v1.0 checklist explicitly includes the full QEMU/final full ISO validation that is deferred until v1.0 — evidence: checklist covers visible QEMU, final ISO build, SSH, bootstrap, doctor, audit/replay, secure mode, reboot, and services, 2026-05-02.
-- [ ] Orchestrator: commit, tag `v0.9.0`, push, publish release, and watch CI. No worker does this.
+- [x] Orchestrator: commit, tag `v0.9.0`, push, publish release, and watch CI — evidence: commit `df593f7`, tag/release `v0.9.0`, run `25238707065` passed amd64/arm64 and attached release assets, 2026-05-02. No QEMU run per v0.5-v0.9 policy.
 
 ## v1.0.0 — Final full ISO validation only
 
