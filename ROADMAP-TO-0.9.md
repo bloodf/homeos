@@ -160,7 +160,7 @@ Goal: harden the project enough to become a release candidate after v0.9 polish.
 ### Completion checks
 
 - [x] Static validation passes: shell syntax, YAML parsing, Ansible syntax check if installed, workflow YAML parse — evidence: `bash -n` passed; `make check-static` passed including workflow/Ansible YAML parse and marker checks; `ansible-playbook` not installed so syntax-check skipped with exit 127 recorded; no QEMU/ISO build run, 2026-05-01.
-- [ ] Orchestrator: commit, tag `v0.8.0`, push, publish release, and watch CI. No worker does this.
+- [x] Orchestrator: commit, tag `v0.8.0`, push, publish release, and watch CI — evidence: implementation commit `e499baa`, CI bytecode-marker fix `af958b0`, tag/release `v0.8.0`, run `25238338081` passed amd64/arm64 and attached release assets, 2026-05-02. No QEMU run per v0.5-v0.9 policy.
 
 ## v0.9.0 — Release-candidate polish
 

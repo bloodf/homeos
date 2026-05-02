@@ -29,3 +29,4 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=<redacted fake test key>
 2026-05-01T22:32:20Z — RELEASE v0.5.0 sha=992655f; GitHub release published; CI build run 25235932085 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
 2026-05-01T22:59:30Z — RELEASE v0.6.0 sha=9da8b87; GitHub release published; CI build run 25236717937 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
 2026-05-01T23:24:00Z — RELEASE v0.7.0 sha=75b7168; GitHub release published; CI build run 25237384242 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
+2026-05-02T00:06:30Z — RELEASE v0.8.0 sha=af958b0; GitHub release published https://github.com/bloodf/homeos/releases/tag/v0.8.0; CI build run 25238338081 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
