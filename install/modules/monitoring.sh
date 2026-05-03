@@ -25,7 +25,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
-    ports: ["9090:9090"]
+    ports: ["9091:9090"]
     volumes:
       - prom-data:/prometheus
   grafana:

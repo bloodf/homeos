@@ -67,6 +67,9 @@ pkg_repo_add() {
     apt)
       local list="/etc/apt/sources.list.d/${name}.list"
       if [[ -n "${PKG_REPO_KEY:-}" ]]; then
+        if ! command -v gpg >/dev/null 2>&1; then
+          pkg_install gnupg || { ui::error "gnupg required for repo key setup"; return 1; }
+        fi
         local keyring="/usr/share/keyrings/${name}-archive-keyring.gpg"
         mkdir -p /usr/share/keyrings
         curl -fsSL "$PKG_REPO_KEY" | gpg --dearmor -o "$keyring"

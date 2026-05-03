@@ -61,8 +61,12 @@ else
   fi
   log "Cloning $HOMEOS_REPO ($HOMEOS_REF) into $HOMEOS_DIR"
   mkdir -p "$(dirname "$HOMEOS_DIR")"
-  git clone --quiet --depth 1 --branch "$HOMEOS_REF" "$HOMEOS_REPO" "$HOMEOS_DIR" \
-    || git clone --quiet "$HOMEOS_REPO" "$HOMEOS_DIR"
+  if ! git clone --quiet --depth 1 --branch "$HOMEOS_REF" "$HOMEOS_REPO" "$HOMEOS_DIR" 2>/dev/null; then
+    log "Shallow clone failed; trying full clone..."
+    if ! git clone --quiet "$HOMEOS_REPO" "$HOMEOS_DIR" 2>/dev/null; then
+      die "Git clone failed. Check network connectivity and repo URL."
+    fi
+  fi
 fi
 
 INSTALLER="$HOMEOS_DIR/install/homeos-install.sh"

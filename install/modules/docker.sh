@@ -41,6 +41,13 @@ apply() {
       ;;
   esac
   pkg_service_enable docker
+
+  # Add invoking user to docker group (standalone path only)
+  local target_user="${SUDO_USER:-${USER:-}}"
+  if [[ -n "$target_user" && "$target_user" != "root" ]]; then
+    usermod -aG docker "$target_user" 2>/dev/null || true
+    ui::info "Added $target_user to docker group (re-login required)"
+  fi
 }
 
 rollback() {
