@@ -31,6 +31,7 @@ result = subprocess.run(
         ":!**/__pycache__/**",
         ":!.pi/**",
         ":!.omc/**",
+        ":!test/run/**",
     ],
     text=True,
     capture_output=True,

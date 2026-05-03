@@ -26,14 +26,14 @@
       ansible.builtin.file:
         path: /var/lib/homeos
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Log bootstrap start
       ansible.builtin.lineinfile:
         path: /var/log/homeos-bootstrap.log
         line: "==== bootstrap start {{ ansible_date_time.iso8601 }} ===="
         create: true
-        mode: '0644'
+        mode: "0644"
 
   roles:
     - role: base
@@ -64,10 +64,20 @@
         path: /var/log/homeos-bootstrap.log
         line: "==== bootstrap complete {{ ansible_date_time.iso8601 }} ===="
         create: true
-        mode: '0644'
+        mode: "0644"
 
     - name: Mark bootstrap complete after successful play
       ansible.builtin.file:
         path: /var/lib/homeos/bootstrapped
         state: touch
-        mode: '0644'
+        mode: "0644"
+
+    - name: Check whether a baked SSH key exists
+      ansible.builtin.stat:
+        path: /home/admin/.ssh/authorized_keys
+      register: homeos_authorized_keys
+
+    - name: Expire public-build admin password after bootstrap
+      ansible.builtin.command: chage -d 0 admin
+      when: not homeos_authorized_keys.stat.exists or homeos_authorized_keys.stat.size == 0
+      changed_when: true

@@ -98,6 +98,78 @@
     enabled: true
     state: started
 
+- name: Identify second disk for swap/cache
+  ansible.builtin.shell: |
+    set -e
+    # Find the disk that hosts vg0/root PV
+    root_pv="$(pvs --noheadings -o pv_name,vg_name | awk '$2=="vg0"{print $1}' | head -1)"
+    root_disk=""
+    if [ -n "$root_pv" ]; then
+      root_disk="$(lsblk -n -o PKNAME "$root_pv" 2>/dev/null | head -1)"
+    fi
+    # Emit the first disk that is NOT the root disk, is a block device, and has no partitions/mounts/LVM
+    for d in /dev/sdb /dev/vdb /dev/nvme1n1 /dev/sda /dev/vda /dev/nvme0n1; do
+      [ -b "$d" ] || continue
+      # Skip if this is the root disk
+      if [ -n "$root_disk" ]; then
+        case "$d" in
+          */dev/${root_disk}|*/dev/${root_disk}*|*/dev/disk/*${root_disk}*) continue ;;
+        esac
+      fi
+      # Skip if mounted, part of LVM, or has partitions in use
+      if findmnt -rn -S "$d" >/dev/null 2>&1; then continue; fi
+      if pvs "$d" >/dev/null 2>&1; then continue; fi
+      # Check for active partitions
+      has_active=no
+      for part in "${d}"[0-9]* "${d}"p[0-9]*; do
+        [ -e "$part" ] || continue
+        if findmnt -rn -S "$part" >/dev/null 2>&1 || pvs "$part" >/dev/null 2>&1; then
+          has_active=yes
+          break
+        fi
+      done
+      [ "$has_active" = "no" ] || continue
+      # Skip optical media
+      if blkid -o value -s TYPE "$d" 2>/dev/null | grep -Eq "^(iso9660|udf)$"; then continue; fi
+      echo "$d"
+      break
+    done
+  args:
+    executable: /bin/bash
+  register: second_disk
+  changed_when: false
+  failed_when: false
+
+- name: Create LVM on second disk (swap + cache)
+  ansible.builtin.shell: |
+    set -e
+    disk="{{ second_disk.stdout }}"
+    [ -b "$disk" ] || { echo "no second disk"; exit 0; }
+    # Skip if already part of vg1
+    if vgs vg1 >/dev/null 2>&1; then
+      echo "vg1 already exists"
+      exit 0
+    fi
+    wipefs -af "$disk"
+    pvcreate -ff -y "$disk"
+    vgcreate vg1 "$disk"
+    lvcreate -L 16G -n swap vg1
+    mkswap /dev/vg1/swap
+    grep -q "^/dev/vg1/swap " /etc/fstab || echo "/dev/vg1/swap none swap sw 0 0" >> /etc/fstab
+    lvcreate -l 100%FREE -n cache vg1
+    echo "created vg1 with swap and cache"
+  args:
+    executable: /bin/bash
+  when: second_disk.stdout is defined and second_disk.stdout | length > 0
+  register: vg1_create
+  changed_when: "'created vg1 with swap and cache' in (vg1_create.stdout | default(''))"
+  failed_when: false
+
+- name: Enable swap
+  ansible.builtin.command: swapon -a
+  changed_when: false
+  failed_when: false
+
 - name: Attach LVM cache to vg0/root if cache LV present
   ansible.builtin.shell: |
     set -e

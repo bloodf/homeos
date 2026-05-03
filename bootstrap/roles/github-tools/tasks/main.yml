@@ -5,7 +5,7 @@
     state: directory
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Clone tools
   ansible.builtin.git:
@@ -18,18 +18,20 @@
 
 - name: Build node tools
   ansible.builtin.shell: |
-    set -e
-    cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
-    if [ -f pnpm-lock.yaml ]; then
-      pnpm install --prod=false || pnpm install
-      pnpm run build 2>/dev/null || true
-    elif [ -f package-lock.json ]; then
-      npm ci || npm install
-      npm run build 2>/dev/null || true
-    elif [ -f package.json ]; then
-      npm install
-      npm run build 2>/dev/null || true
-    fi
+    timeout 300 bash -lc '
+      set -e
+      cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
+      if [ -f pnpm-lock.yaml ]; then
+        pnpm install --prod=false || pnpm install
+        pnpm run build 2>/dev/null || true
+      elif [ -f package-lock.json ]; then
+        npm ci || npm install
+        npm run build 2>/dev/null || true
+      elif [ -f package.json ]; then
+        npm install
+        npm run build 2>/dev/null || true
+      fi
+    ' || true
   args:
     executable: /bin/bash
   become_user: "{{ admin_user }}"
@@ -38,9 +40,11 @@
 
 - name: Build pipx tools
   ansible.builtin.shell: |
-    set -e
-    cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
-    pipx install --force . || true
+    timeout 180 bash -lc '
+      set -e
+      cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
+      pipx install --force . || true
+    ' || true
   args:
     executable: /bin/bash
   become_user: "{{ admin_user }}"
@@ -49,14 +53,16 @@
 
 - name: Build "auto" tools (try cargo, then npm)
   ansible.builtin.shell: |
-    set -e
-    cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
-    if [ -f Cargo.toml ]; then
-      cargo install --path . || true
-    elif [ -f package.json ]; then
-      pnpm install || npm install
-      pnpm run build 2>/dev/null || npm run build 2>/dev/null || true
-    fi
+    timeout 300 bash -lc '
+      set -e
+      cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
+      if [ -f Cargo.toml ]; then
+        cargo install --path . || true
+      elif [ -f package.json ]; then
+        pnpm install || npm install
+        pnpm run build 2>/dev/null || npm run build 2>/dev/null || true
+      fi
+    ' || true
   args:
     executable: /bin/bash
   become_user: "{{ admin_user }}"
@@ -65,11 +71,13 @@
 
 - name: Bring up compose-based tools
   ansible.builtin.shell: |
-    set -e
-    cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
-    if [ -f docker-compose.yml ] || [ -f compose.yaml ]; then
-      docker compose up -d
-    fi
+    timeout 300 bash -lc '
+      set -e
+      cd "{{ item.dest | default('/opt/tools/' + item.name) }}"
+      if [ -f docker-compose.yml ] || [ -f compose.yaml ]; then
+        docker compose up -d
+      fi
+    ' || true
   args:
     executable: /bin/bash
   loop: "{{ github_tools | selectattr('build','equalto','compose') | list }}"
@@ -77,15 +85,17 @@
 
 - name: Install claude-mem (Claude Code, Codex, Cursor only)
   ansible.builtin.shell: |
-    set -e
-    cd /opt/tools/claude-mem
-    if [ -f package.json ]; then
-      pnpm install || npm install
-      # claude-mem ships installers for specific clients; restrict to allowed targets
-      for tgt in claude-code codex cursor; do
-        npx claude-mem install --client "$tgt" 2>/dev/null || true
-      done
-    fi
+    timeout 300 bash -lc '
+      set -e
+      cd /opt/tools/claude-mem
+      if [ -f package.json ]; then
+        pnpm install || npm install
+        # claude-mem ships installers for specific clients; restrict to allowed targets
+        for tgt in claude-code codex cursor; do
+          npx claude-mem install --client "$tgt" 2>/dev/null || true
+        done
+      fi
+    ' || true
   args:
     executable: /bin/bash
   become_user: "{{ admin_user }}"

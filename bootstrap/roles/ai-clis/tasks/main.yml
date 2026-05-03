@@ -1,15 +1,19 @@
 ---
 - name: Install AI CLIs from npm
-  community.general.npm:
-    name: "{{ item }}"
-    global: true
-    state: present
+  ansible.builtin.shell: |
+    timeout 300 npm install -g {{ item }} || true
+  args:
+    executable: /bin/bash
   loop: "{{ ai_clis_npm }}"
+  register: ai_npm
+  changed_when: "'added' in (ai_npm.stdout | default('')) or 'changed' in (ai_npm.stdout | default(''))"
+  failed_when: false
 
 - name: Install AI CLIs via brew taps
   ansible.builtin.shell: |
     set -e
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    export HOMEBREW_NO_AUTO_UPDATE=1
     brew tap {{ item.tap }} 2>/dev/null || true
     brew install {{ item.tap }}/{{ item.formula }} || brew install {{ item.formula }}
   args:
@@ -26,9 +30,9 @@
     if ! command -v {{ item.name }} >/dev/null 2>&1; then
       tmp="$(mktemp)"
       trap 'rm -f "$tmp"' EXIT
-      curl {{ item.curl_flags | default('-fsSL') }} -o "$tmp" {{ item.url }}
-      if [ -n "{{ item.sha256 | default('') }}" ]; then
-        echo "{{ item.sha256 }}  $tmp" | sha256sum -c -
+      curl {{ item.get('curl_flags', '-fsSL') }} -o "$tmp" {{ item.url }}
+      if [ -n "{{ item.get('sha256', '') }}" ]; then
+        echo "{{ item.get('sha256', '') }}  $tmp" | sha256sum -c -
       fi
       {{ item.shell }} "$tmp"
     fi
@@ -51,6 +55,10 @@
 
 - name: Smoke-test installed AI CLIs
   ansible.builtin.shell: |
+    # Ensure brew binaries are on PATH for this non-login shell
+    if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
     for cli in claude codex gemini cursor-agent opencode kimi; do
       if command -v "$cli" >/dev/null 2>&1; then
         echo "OK $cli $($cli --version 2>&1 | head -1)"

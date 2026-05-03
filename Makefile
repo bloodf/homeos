@@ -60,12 +60,25 @@ iso: check-pubkey check-static builder base-iso ## build the homeos ISO from com
 	@echo "Built: $(OUT_ISO)"
 	@sha256sum $(OUT_ISO) | tee $(OUT_ISO).sha256
 
+# QEMU acceleration auto-detect (override: make QEMU_ACCEL=-accel hvf qemu-test)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  QEMU_ACCEL ?= -enable-kvm
+  QEMU_CPU   ?= -cpu host
+else ifeq ($(UNAME_S),Darwin)
+  QEMU_ACCEL ?= # hvf may not be available for x86_64 on Apple Silicon; leave empty for TCG
+  QEMU_CPU   ?= -cpu max
+else
+  QEMU_ACCEL ?=
+  QEMU_CPU   ?= -cpu max
+endif
+
 qemu-test: ## boot the ISO in QEMU (needs qemu-system-x86)
 	mkdir -p $(CACHE)/qemu
 	[ -f $(CACHE)/qemu/disk1.qcow2 ] || qemu-img create -f qcow2 $(CACHE)/qemu/disk1.qcow2 60G
 	[ -f $(CACHE)/qemu/disk2.qcow2 ] || qemu-img create -f qcow2 $(CACHE)/qemu/disk2.qcow2 20G
 	qemu-system-x86_64 \
-	  -enable-kvm -m 8192 -smp 4 \
+	  $(QEMU_ACCEL) $(QEMU_CPU) -m 8192 -smp 4 \
 	  -nographic -serial mon:stdio \
 	  -drive file=$(CACHE)/qemu/disk1.qcow2,if=virtio \
 	  -drive file=$(CACHE)/qemu/disk2.qcow2,if=virtio \

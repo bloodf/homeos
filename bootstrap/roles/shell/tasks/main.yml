@@ -52,6 +52,14 @@
     executable: /bin/bash
     creates: /usr/local/bin/starship
 
+- name: Ensure admin config directory exists
+  ansible.builtin.file:
+    path: "{{ admin_home }}/.config"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+
 - name: Drop starship config
   ansible.builtin.copy:
     src: starship.toml

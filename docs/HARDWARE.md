@@ -8,7 +8,7 @@
 | Mini PC (N100/N305)                   | Beelink S12, GMKtec NucBox | ✅ full support, QSV works                                                 |
 | Custom build (i3/i5 12th-gen+ + iGPU) | DIY                        | ✅ full support                                                            |
 | Old laptop, x86_64                    | ThinkPad T480, X1          | ✅ works (no QSV on Gen 8 and older)                                       |
-| Raspberry Pi 5 (arm64)                | RPi5 8 GB                  | ⚠ boots, no GPU transcoding                                               |
+| Raspberry Pi 5 (arm64)                | RPi5 8 GB                  | ⚠ boots, no GPU transcoding                                                |
 | Apple Silicon Mac                     | (via UTM/QEMU)             | ❌ ISO doesn't apply — use the arm64 build for native arm64 boards instead |
 
 ## Minimum
@@ -52,23 +52,23 @@ Jellyfin compose to add the nvidia runtime.
 ### Recommended layout
 
 ```
-Disk 1 (sda):
-  /dev/sda1   ext4   1 GB    /boot
-  /dev/sda2   LVM    rest    vg0 → vg0/root (ext4)
+Disk 1 (first installer-visible disk: sda/vda/nvme0n1/etc.):
+  partition 1   ext4   1 GB    /boot
+  partition 2   LVM    rest    vg0 → vg0/root (ext4)
 
-Disk 2 (sdb):
-  /dev/sdb    LVM    full    vg1 → vg1/swap (16 GB)
-                              vg1/cache (rest, attached to vg0/root)
+Disk 2 (optional):
+  left untouched by the installer; add it after first boot if you want a cache,
+  swap, or NAS disk.
 ```
 
-The LVM cache attach happens in the `base` Ansible role only if `vg1/cache`
-exists. Single-disk boxes skip the cache/swap VG.
+HomeOS v1.0 intentionally only partitions the OS disk during installation. This
+keeps the installer deterministic across bare metal, USB boot, and QEMU virtio
+disk naming. Optional cache/swap/NAS disks are day-2 configuration.
 
 ### Single-disk fallback
 
-The preseed `late_command` second-disk step is guarded and wrapped with
-`|| true`. If `/dev/sdb` doesn't exist, is mounted, or looks like ISO/UDF
-installer media, the install proceeds without the cache/swap VG.
+Single-disk boxes install normally. Additional disks are ignored by the
+installer and can be configured after first boot.
 
 ### Disk roles for NAS
 
