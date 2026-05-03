@@ -1,0 +1,128 @@
+# HomeOS Universal Installer Configuration
+# Copy this file to /etc/homeos/homeos.conf or ~/.config/homeos/homeos.conf
+# and customize for your deployment.
+
+# =============================================================================
+# CORE SETTINGS
+# =============================================================================
+
+# Admin user for HomeOS (will be created if doesn't exist)
+HOMEOS_ADMIN_USER="admin"
+HOMEOS_ADMIN_HOME="/home/admin"
+
+# Installation mode: "full" (everything) or "minimal" (core only)
+HOMEOS_MODE="full"
+
+# Auto-confirm without prompts (set to "yes" for unattended installs)
+HOMEOS_UNATTENDED="no"
+
+# =============================================================================
+# COMPONENT SELECTION
+# Set to "yes" to install, "no" to skip
+# =============================================================================
+
+# Core infrastructure
+INSTALL_BASE="yes"
+INSTALL_DOCKER="yes"
+INSTALL_NODE="yes"
+
+# Network & Access
+INSTALL_TAILSCALE="yes"
+INSTALL_CADDY="yes"
+
+# Web UIs & Management
+INSTALL_CASAOS="yes"
+INSTALL_COCKPIT="yes"
+
+# Media & Home Automation
+INSTALL_HOMEASSISTANT="yes"
+INSTALL_JELLYFIN="yes"
+
+# Security
+INSTALL_VAULTWARDEN="yes"
+INSTALL_FIREWALL="yes"
+INSTALL_SSH_HARDEN="yes"
+
+# AI / Dev Tools
+INSTALL_AI_CLIS="yes"
+INSTALL_GITHUB_TOOLS="yes"
+
+# Monitoring & Backups
+INSTALL_MONITORING="yes"
+INSTALL_BACKUPS="yes"
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+
+# Your Tailscale tailnet name (e.g., "mynet" for mynet.ts.net)
+# Leave empty to skip Tailscale setup
+TAILNET_NAME=""
+
+# Caddy domain for reverse proxy
+# Leave empty for local-only access
+CADDY_DOMAIN=""
+
+# =============================================================================
+# CREDENTIALS & SECRETS
+# =============================================================================
+
+# WARNING: For production, use a secrets manager. This file should be 0600.
+
+# Tailscale auth key (optional - if empty, manual auth required)
+TAILSCALE_AUTH_KEY=""
+
+# Vaultwarden admin token
+VAULTWARDEN_ADMIN_TOKEN=""
+
+# Home Assistant API token (optional)
+HOMEASSISTANT_API_TOKEN=""
+
+# =============================================================================
+# STORAGE PATHS
+# =============================================================================
+
+# Base directory for all HomeOS data
+HOMEOS_DATA_DIR="/opt/homeos"
+
+# NAS / Media mount point
+MEDIA_PATH="/srv/media"
+
+# Backup target (local path or restic repo URL)
+BACKUP_TARGET=""
+
+# =============================================================================
+# AI CLI CONFIGURATION
+# =============================================================================
+
+# API Keys for AI CLIs
+ANTHROPIC_API_KEY=""
+OPENAI_API_KEY=""
+GOOGLE_API_KEY=""
+
+# =============================================================================
+# FIREWALL PORTS
+# These are auto-configured but can be overridden
+# =============================================================================
+
+# Additional TCP ports to open (space-separated)
+EXTRA_TCP_PORTS=""
+
+# Additional UDP ports to open (space-separated)
+EXTRA_UDP_PORTS=""
+
+# =============================================================================
+# ADVANCED
+# =============================================================================
+
+# Docker network range (default: 172.30.0.0/16)
+DOCKER_NETWORK_RANGE="172.30.0.0/16"
+
+# Timezone (default: auto-detect)
+TIMEZONE=""
+
+# GitHub tools to install (space-separated names, or "all")
+GITHUB_TOOLS="all"
+
+# Enable HomeOS CLI audit logging
+ENABLE_AUDIT="yes"
