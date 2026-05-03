@@ -60,6 +60,12 @@ sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/un
 curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh | sudo bash -s -- --mode minimal
 ```
 
+### Dry Run (Preview Without Installing)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh | sudo bash -s -- --dry-run
+```
+
 ## OS Support
 
 | OS                  | Minimum Version |
@@ -111,20 +117,27 @@ See [`universal-installer/homeos.conf.example`](universal-installer/homeos.conf.
 After installation:
 
 ```bash
-homeos status    # Show services, containers, disk usage
-homeos doctor    # Run health checks
-homeos update    # Pull latest installer and re-run
+homeos status       # Show services, containers, disk usage
+homeos doctor       # Run health checks (runtime, services, stacks, disk)
+homeos logs <svc>   # View container logs (ha, jellyfin, vaultwarden, etc.)
+homeos restart <svc> # Restart a service
+homeos backup       # Trigger backup manually
+homeos config       # Show current configuration
+homeos update       # Pull latest installer and re-run
+homeos --version    # Show CLI version
 ```
 
 ## Why a script instead of an ISO?
 
-| Before (ISO)                             | Now (Script)                             |
-| ---------------------------------------- | ---------------------------------------- |
-| Burn USB, bare-metal install only        | Runs on existing VMs, cloud, old laptops |
-| Fixed disk layout                        | Works with any partition scheme          |
-| Single architecture per ISO              | amd64, arm64, any platform               |
-| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file         |
-| Hard to iterate                          | Edit config, re-run instantly            |
+| Before (ISO)                             | Now (Script)                              |
+| ---------------------------------------- | ----------------------------------------- |
+| Burn USB, bare-metal install only        | Runs on existing VMs, cloud, old laptops  |
+| Fixed disk layout                        | Works with any partition scheme           |
+| Single architecture per ISO              | amd64, arm64, any platform                |
+| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file          |
+| Hard to iterate                          | Edit config, re-run instantly             |
+| No uninstall                             | `sudo ./install.sh uninstall`             |
+| No pre-flight checks                     | Validates disk, RAM, internet, OS before install |
 
 ## Repository Layout
 
