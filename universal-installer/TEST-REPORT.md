@@ -8,12 +8,12 @@
 
 ## Test Matrix
 
-| OS | Mode | Components | Result | Time |
-|----|------|-----------|--------|------|
-| Debian 12 (bookworm) | minimal | base, docker, node | ✅ PASS | ~2m |
-| Debian 12 (bookworm) | full | base, docker, node, caddy, cockpit | ✅ PASS | ~3m 45s |
-| Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~3m |
-| Fedora 40 | minimal | base, docker, node | ✅ PASS | ~2m 15s |
+| OS                   | Mode        | Components                           | Result  | Time    |
+| -------------------- | ----------- | ------------------------------------ | ------- | ------- |
+| Debian 12 (bookworm) | minimal     | base, docker, node                   | ✅ PASS | ~2m     |
+| Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit   | ✅ PASS | ~3m 45s |
+| Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~3m     |
+| Fedora 40            | minimal     | base, docker, node                   | ✅ PASS | ~2m 15s |
 
 ---
 
@@ -80,42 +80,52 @@ Running the installer a second time on the same system:
 ## Fixes Applied During Testing
 
 ### 1. NodeSource GPG Key Handling
+
 **Problem:** Manual `gpg --dearmor` of NodeSource key failed with `NO_PUBKEY` error on clean Debian installs.
 **Fix:** Replaced manual keyring setup with official NodeSource `setup_24.x` script.
 
 ### 2. systemd Unavailable in Containers
+
 **Problem:** `systemctl enable --now` failed in Docker containers and WSL without systemd.
 **Fix:** `pkg_service_enable()` now checks for `systemctl` availability and skips gracefully.
 
 ### 3. Docker Daemon Not Running
+
 **Problem:** `docker compose up -d` crashed the script when Docker daemon wasn't running (containers, test envs).
 **Fix:** All stack deployments now use `|| warn` fallback with descriptive message.
 
 ### 4. Forced Password Change in Unattended Mode
+
 **Problem:** `passwd -e` broke `su -` authentication during unattended installs.
 **Fix:** Skip `passwd -e` when `HOMEOS_UNATTENDED=yes`.
 
 ### 5. Bun Install Failures
+
 **Problem:** Bun install via `su -` could fail and abort the script.
 **Fix:** Made non-fatal with `|| warn "Bun install failed (non-fatal)"`.
 
 ### 6. API Key Duplication
+
 **Problem:** API keys were appended to `.bashrc` on every run, creating duplicates.
 **Fix:** Check if key already exists before appending.
 
 ### 7. Fedora `sudo` Group Missing
+
 **Problem:** `useradd -G sudo` failed on Fedora because the group is named `wheel`.
 **Fix:** Use `wheel` group on RHEL family, `sudo` on Debian family.
 
 ### 8. GPG TTY Required
+
 **Problem:** `gpg --dearmor` tried to open `/dev/tty` in non-interactive environments.
 **Fix:** Added `--batch --yes` flags to GPG dearmor operations.
 
 ### 9. Config Guard Gates
+
 **Problem:** `install_homeos_cli()` and `install_watchtower()` always ran regardless of config.
 **Fix:** Added `INSTALL_BASE` and `INSTALL_DOCKER` guard checks respectively.
 
 ### 10. Shellcheck Compliance
+
 **Fix:** Removed unused variables (`HI_LIB_DIR`, `HOMEASSISTANT_API_TOKEN`, `ENABLE_AUDIT`), fixed `=~` regex quoting.
 
 ---
@@ -165,12 +175,12 @@ bash /installer/install.sh --unattended --mode minimal
 
 ## Sign-off
 
-| Check | Status |
-|-------|--------|
-| Shellcheck clean | ✅ |
-| Debian 12 minimal | ✅ |
-| Debian 12 full | ✅ |
-| Debian 12 idempotent | ✅ |
-| Fedora 40 minimal | ✅ |
-| homeos CLI functional | ✅ |
-| Install log complete | ✅ |
+| Check                 | Status |
+| --------------------- | ------ |
+| Shellcheck clean      | ✅     |
+| Debian 12 minimal     | ✅     |
+| Debian 12 full        | ✅     |
+| Debian 12 idempotent  | ✅     |
+| Fedora 40 minimal     | ✅     |
+| homeos CLI functional | ✅     |
+| Install log complete  | ✅     |

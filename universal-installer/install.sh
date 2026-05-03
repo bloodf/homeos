@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HomeOS Universal Installer
+# HomeOS Universal Installer v1.0.0
 # Works on Debian 12+/Ubuntu 22.04+ and Fedora 38+/RHEL 9+
 #
 # Usage:
@@ -7,6 +7,8 @@
 #   sudo ./install.sh --config /path     # Use custom config
 #   sudo ./install.sh --unattended       # Non-interactive (needs config)
 #   sudo ./install.sh --mode minimal     # Install core only
+#   sudo ./install.sh --dry-run          # Preview what would be installed
+#   sudo ./install.sh uninstall          # Remove HomeOS
 #
 # Config file locations (first found wins):
 #   1. --config <path>
@@ -22,6 +24,10 @@ IFS=$'\n\t'
 # ------------------------------------------------------------------------------
 HI_VERSION="1.0.0"
 HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_STATE_DIR="/var/lib/homeos"
+DRY_RUN="no"
+SKIP_CHECKS="no"
+YES_FLAG="no"
 
 # ------------------------------------------------------------------------------
 # DEFAULT CONFIGURATION (overridden by config file)
@@ -69,8 +75,8 @@ GITHUB_TOOLS="all"
 # ------------------------------------------------------------------------------
 CONFIG_FILE=""
 LOG_FILE="/var/log/homeos-install.log"
-OS_FAMILY="" # debian or rhel
-OS_ID=""     # debian, ubuntu, fedora, rhel, rocky, almalinux
+OS_FAMILY=""
+OS_ID=""
 OS_VERSION=""
 
 # ------------------------------------------------------------------------------
@@ -121,6 +127,53 @@ check_root() {
 	fi
 }
 
+preflight_checks() {
+	[[ "$SKIP_CHECKS" == "yes" ]] && return 0
+	section "Pre-Flight Checks"
+	local fails=0
+
+	if [[ "$DRY_RUN" == "yes" ]]; then
+		info "Would check: disk space (>=10GB), RAM (>=2GB), internet, OS compatibility"
+		return 0
+	fi
+
+	local avail_gb
+	avail_gb="$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')"
+	if [[ "$avail_gb" -lt 10 ]]; then
+		warn "Low disk space: ${avail_gb}GB available. 10GB+ recommended."
+		fails=$((fails + 1))
+	else
+		ok "Disk space: ${avail_gb}GB available"
+	fi
+
+	local ram_mb
+	ram_mb="$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo 0)"
+	if [[ "$ram_mb" -lt 2048 ]]; then
+		warn "Low RAM: ${ram_mb}MB. 2GB+ recommended (4GB for full mode)."
+		fails=$((fails + 1))
+	else
+		ok "RAM: ${ram_mb}MB available"
+	fi
+
+	if curl -fsSL --max-time 10 https://github.com >/dev/null 2>&1; then
+		ok "Internet connectivity"
+	else
+		err "No internet connectivity. Check your network."
+		fails=$((fails + 1))
+	fi
+
+	case "$OS_ID" in
+		debian | ubuntu | fedora | rhel | rocky | almalinux) ok "OS supported: $OS_ID $OS_VERSION" ;;
+		*) err "Unsupported OS: $OS_ID"; fails=$((fails + 1)) ;;
+	esac
+
+	if [[ "$fails" -gt 0 ]]; then
+		die "$fails pre-flight check(s) failed. Fix issues or use --skip-checks to bypass."
+	fi
+
+	ok "All pre-flight checks passed"
+}
+
 detect_os() {
 	if [[ -r /etc/os-release ]]; then
 		# shellcheck source=/dev/null
@@ -137,7 +190,6 @@ detect_os() {
 	*) die "Unsupported OS: $OS_ID. Only Debian/Ubuntu and Fedora/RHEL families are supported." ;;
 	esac
 
-	# Minimum version checks
 	case "$OS_ID" in
 	debian)
 		local major
@@ -193,22 +245,21 @@ load_config() {
 
 	log "Loading config: $cfg"
 
-	# Source the config file safely
 	while IFS='=' read -r key value; do
-		# Skip comments and empty lines
 		[[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
-		# Trim whitespace
 		key="$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 		value="$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-		# Remove surrounding quotes if present
 		value="${value%\"}"
 		value="${value#\"}"
 		value="${value%\'}"
 		value="${value#\'}"
 
-		# Only set known variables
+		if [[ "$value" == \$\{*\} || "$value" == \$* ]]; then
+			value="$(eval echo "$value")"
+		fi
+
 		case "$key" in
-		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | HOMEASSISTANT_API_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | ENABLE_AUDIT)
+		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS)
 			eval "$key=\"\$value\""
 			;;
 		esac
@@ -263,6 +314,10 @@ confirm_install() {
 	fi
 	echo
 
+	if [[ "$YES_FLAG" == "yes" ]]; then
+		ok "Auto-accepting (--yes)"
+		return 0
+	fi
 	read -r -p "Proceed with installation? [y/N] " ans
 	[[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]] || die "Aborted by user."
 }
@@ -282,6 +337,10 @@ pkg_update() {
 pkg_install() {
 	local pkgs=("$@")
 	if [[ ${#pkgs[@]} -eq 0 ]]; then return 0; fi
+	if [[ "$DRY_RUN" == "yes" ]]; then
+		info "Would install: ${pkgs[*]}"
+		return 0
+	fi
 	log "Installing: ${pkgs[*]}"
 	if [[ "$OS_FAMILY" == "debian" ]]; then
 		DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
@@ -293,7 +352,6 @@ pkg_install() {
 pkg_service_enable() {
 	local svc="$1"
 	log "Enabling service: $svc"
-	# Gracefully handle environments without systemd (containers, WSL, etc.)
 	if ! command -v systemctl &>/dev/null; then
 		warn "systemctl not available; skipping service enable for $svc"
 		return 0
@@ -333,33 +391,46 @@ install_base() {
 		pkg_install "${rhel_pkgs[@]}"
 	fi
 
-	# Set timezone
 	if [[ -n "$TIMEZONE" ]]; then
 		timedatectl set-timezone "$TIMEZONE" 2>/dev/null || true
 	fi
 
-	# Create admin user if not exists
 	if ! id "$HOMEOS_ADMIN_USER" &>/dev/null; then
 		log "Creating admin user: $HOMEOS_ADMIN_USER"
 		local sudo_group="sudo"
 		[[ "$OS_FAMILY" == "rhel" ]] && sudo_group="wheel"
 		useradd -m -s /bin/bash -G "$sudo_group" "$HOMEOS_ADMIN_USER"
-		echo "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" | chpasswd
-		# Force password change on first login (skip in unattended mode)
-		if [[ "$HOMEOS_UNATTENDED" != "yes" ]]; then
+
+		local admin_pass
+		if [[ -n "${HOMEOS_ADMIN_PASSWORD:-}" ]]; then
+			admin_pass="$HOMEOS_ADMIN_PASSWORD"
+		elif [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
+			admin_pass="$(openssl rand -base64 24 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
+			log_to_file "GENERATED_PASSWORD"
+			mkdir -p "$INSTALL_STATE_DIR"
+			chmod 700 "$INSTALL_STATE_DIR"
+			echo "$admin_pass" > "$INSTALL_STATE_DIR/admin-password.txt"
+			chmod 600 "$INSTALL_STATE_DIR/admin-password.txt"
+			warn "Generated random admin password. Retrieve with: sudo cat $INSTALL_STATE_DIR/admin-password.txt"
+		else
+			admin_pass="$HOMEOS_ADMIN_USER"
+		fi
+		echo "$HOMEOS_ADMIN_USER:$admin_pass" | chpasswd
+
+		if [[ "$HOMEOS_UNATTENDED" != "yes" && -z "${HOMEOS_ADMIN_PASSWORD:-}" ]]; then
 			passwd -e "$HOMEOS_ADMIN_USER" 2>/dev/null || true
 		fi
 	fi
 
-	# Ensure sudoers
 	if [[ ! -f "/etc/sudoers.d/${HOMEOS_ADMIN_USER}" ]]; then
 		echo "$HOMEOS_ADMIN_USER ALL=(ALL) NOPASSWD:ALL" >"/etc/sudoers.d/${HOMEOS_ADMIN_USER}"
 		chmod 440 "/etc/sudoers.d/${HOMEOS_ADMIN_USER}"
 	fi
 
-	# Create directories
 	mkdir -p "$HOMEOS_DATA_DIR" "$MEDIA_PATH"
 	chown "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" "$HOMEOS_DATA_DIR" 2>/dev/null || true
+
+	echo "base=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
 	ok "Base system installed"
 }
@@ -392,7 +463,6 @@ install_docker() {
 
 	pkg_service_enable docker
 
-	# Docker daemon config
 	cat >/etc/docker/daemon.json <<EOF
 {
   "log-driver": "json-file",
@@ -404,8 +474,9 @@ install_docker() {
 }
 EOF
 
-	# Add admin to docker group
 	usermod -aG docker "$HOMEOS_ADMIN_USER" 2>/dev/null || true
+
+	echo "docker=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
 	ok "Docker installed"
 }
@@ -420,7 +491,6 @@ install_node() {
 	if ! command -v node &>/dev/null || ! node -v | grep -q "^v24\."; then
 		if [[ "$OS_FAMILY" == "debian" ]]; then
 			log "Adding NodeSource repository..."
-			# Use official NodeSource setup script for reliable GPG key handling
 			curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 			pkg_install nodejs
 		else
@@ -430,11 +500,9 @@ install_node() {
 		fi
 	fi
 
-	# Corepack for pnpm
 	corepack enable 2>/dev/null || true
 	corepack prepare pnpm@latest --activate 2>/dev/null || true
 
-	# Bun
 	if [[ ! -x "${HOMEOS_ADMIN_HOME}/.bun/bin/bun" ]]; then
 		log "Installing Bun..."
 		su - "$HOMEOS_ADMIN_USER" -c "curl -fsSL https://bun.sh/install | bash" 2>/dev/null || warn "Bun install failed (non-fatal)"
@@ -489,7 +557,6 @@ install_caddy() {
 		fi
 	fi
 
-	# Create Caddyfile
 	mkdir -p /etc/caddy
 	cat >/etc/caddy/Caddyfile <<EOF
 {
@@ -526,8 +593,6 @@ install_cockpit() {
 
 	if [[ "$OS_FAMILY" == "debian" ]]; then
 		pkg_install cockpit cockpit-storaged cockpit-networkmanager cockpit-podman cockpit-packagekit
-
-		# 45Drives modules (Debian only - they don't have RHEL packages)
 		curl -fsSL https://repo.45drives.com/key/gpg.asc | gpg --batch --yes --dearmor -o /usr/share/keyrings/45drives-archive-keyring.gpg
 		curl -fsSL https://repo.45drives.com/lists/45drives.sources -o /etc/apt/sources.list.d/45drives.sources
 		pkg_update
@@ -599,7 +664,7 @@ services:
       - jellyfin-cache:/cache
       - $MEDIA_PATH:/media:ro
     devices:
-      - /dev/dri:/dev/dri  # Intel QSV/VAAPI
+      - /dev/dri:/dev/dri
 volumes:
   jellyfin-config:
   jellyfin-cache:
@@ -707,43 +772,36 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
-# SECTION: AI CLIs
+# SECTION: AI CLIS
 # ------------------------------------------------------------------------------
 install_ai_clis() {
 	[[ "$INSTALL_AI_CLIS" == "yes" ]] || return 0
 	section "AI CLIs"
 
-	# Anthropic Claude Code
 	if ! command -v claude &>/dev/null; then
 		npm install -g @anthropic-ai/claude-code 2>/dev/null || warn "claude-code install failed"
 	fi
 
-	# OpenAI Codex
 	if ! command -v codex &>/dev/null; then
 		npm install -g @openai/codex 2>/dev/null || warn "codex install failed"
 	fi
 
-	# Google Gemini CLI
 	if ! command -v gemini &>/dev/null; then
 		npm install -g @google/gemini-cli 2>/dev/null || warn "gemini-cli install failed"
 	fi
 
-	# Cursor Agent
 	if ! command -v cursor-agent &>/dev/null; then
 		curl -fsSL https://cursor.com/install | bash 2>/dev/null || warn "cursor-agent install failed"
 	fi
 
-	# Kimi
 	if ! command -v kimi &>/dev/null; then
 		curl -fsSL https://code.kimi.com/install.sh | bash 2>/dev/null || warn "kimi install failed"
 	fi
 
-	# Opencode
 	if ! command -v opencode &>/dev/null; then
 		curl -fsSL https://opencode.ai/install | bash 2>/dev/null || warn "opencode install failed"
 	fi
 
-	# Configure API keys for admin user (idempotent: only add if not present)
 	local admin_rc="${HOMEOS_ADMIN_HOME}/.bashrc"
 	[[ -f "${HOMEOS_ADMIN_HOME}/.zshrc" ]] && admin_rc="${HOMEOS_ADMIN_HOME}/.zshrc"
 
@@ -813,21 +871,17 @@ install_firewall() {
 	local tcp_ports=(22 80 443 445 139 2049 8123 8096 9090 81 8222 3000 9091)
 	local udp_ports=(137 138 2049 5353 1900 7359)
 
-	# Add extra ports from config
 	for p in $EXTRA_TCP_PORTS; do tcp_ports+=("$p"); done
 	for p in $EXTRA_UDP_PORTS; do udp_ports+=("$p"); done
 
 	if [[ "$OS_FAMILY" == "debian" ]]; then
-		# UFW
 		ufw --force default deny incoming
 		ufw --force default allow outgoing
 		for p in "${tcp_ports[@]}"; do ufw --force allow "$p"/tcp; done
 		for p in "${udp_ports[@]}"; do ufw --force allow "$p"/udp; done
-		# Allow tailscale interface
 		ufw allow in on tailscale0 2>/dev/null || true
 		ufw --force enable
 	else
-		# firewalld
 		systemctl enable --now firewalld
 		for p in "${tcp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/tcp; done
 		for p in "${udp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/udp; done
@@ -857,7 +911,6 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 EOF
 
-	# If admin has an SSH key, prefer key auth
 	if [[ -f "${HOMEOS_ADMIN_HOME}/.ssh/authorized_keys" ]] && [[ -s "${HOMEOS_ADMIN_HOME}/.ssh/authorized_keys" ]]; then
 		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config.d/99-homeos.conf
 	fi
@@ -881,7 +934,6 @@ install_backups() {
 		fi
 	fi
 
-	# Create backup env file
 	mkdir -p /etc/homeos
 	cat >/etc/homeos/backup.env <<EOF
 # HomeOS Backup Configuration
@@ -892,7 +944,6 @@ BACKUP_KEEP_WEEKLY=4
 BACKUP_KEEP_MONTHLY=12
 EOF
 
-	# Daily backup cron
 	cat >/etc/cron.daily/homeos-backup <<'CRON'
 #!/bin/bash
 set -e
@@ -908,6 +959,41 @@ CRON
 }
 
 # ------------------------------------------------------------------------------
+# SECTION: UNINSTALL
+# ------------------------------------------------------------------------------
+uninstall_homeos() {
+	section "Uninstalling HomeOS"
+
+	read -r -p "Remove all HomeOS components? [y/N] " ans
+	[[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]] || die "Aborted."
+
+	if command -v docker &>/dev/null; then
+		log "Stopping HomeOS containers..."
+		for stack_dir in "$HOMEOS_DATA_DIR/stacks/"*/; do
+			if [[ -f "$stack_dir/docker-compose.yml" ]]; then
+				(cd "$stack_dir" && docker compose down 2>/dev/null) || true
+			fi
+		done
+	fi
+
+	read -r -p "Remove Docker volumes (data will be lost)? [y/N] " vol_ans
+	if [[ "${vol_ans,,}" == "y" || "${vol_ans,,}" == "yes" ]]; then
+		if command -v docker &>/dev/null; then
+			docker volume rm ha-config jellyfin-config jellyfin-cache vw-data prom-data grafana-data 2>/dev/null || true
+		fi
+	fi
+
+	rm -rf "$HOMEOS_DATA_DIR"
+	rm -rf /etc/homeos
+	rm -f /etc/cron.daily/homeos-backup
+	rm -f /usr/local/bin/homeos
+	rm -rf "$INSTALL_STATE_DIR"
+
+	ok "HomeOS uninstalled. Docker, Node.js, and system packages were not removed."
+	info "To remove packages manually: sudo apt remove docker-ce nodejs caddy cockpit"
+}
+
+# ------------------------------------------------------------------------------
 # SECTION: HOMEOS CLI
 # ------------------------------------------------------------------------------
 install_homeos_cli() {
@@ -916,7 +1002,7 @@ install_homeos_cli() {
 
 	cat >/usr/local/bin/homeos <<'CLIEOF'
 #!/usr/bin/env bash
-# HomeOS day-2 CLI
+# HomeOS day-2 CLI v1.0.0
 set -euo pipefail
 
 ADMIN_USER="${HOMEOS_ADMIN_USER:-admin}"
@@ -925,61 +1011,131 @@ DATA_DIR="${HOMEOS_DATA_DIR:-/opt/homeos}"
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 
+show_status() {
+	bold "== HomeOS Status =="
+	echo "OS: $(cat /etc/os-release | grep ^PRETTY_NAME= | cut -d= -f2 | tr -d '\"')"
+	echo "Uptime: $(uptime -p 2>/dev/null || uptime)"
+	echo ""
+	bold "== Services =="
+	for svc in docker tailscaled cockpit.socket caddy casaos; do
+		if systemctl is-active "$svc" &>/dev/null; then
+			echo "  ✓ $svc"
+		else
+			echo "  ✗ $svc"
+		fi
+	done
+	echo ""
+	bold "== Containers =="
+	docker ps --format "  {{.Names}} ({{.Status}})" 2>/dev/null || echo "  Docker not available"
+	echo ""
+	bold "== Disk Usage =="
+	df -h / /opt /srv 2>/dev/null | grep -v Filesystem || true
+}
+
+show_doctor() {
+	local fails=0
+	check() {
+		local label="$1"; shift
+		if "$@" >/dev/null 2>&1; then printf "  \033[32m✓\033[0m %s\n" "$label"
+		else printf "  \033[31m✗\033[0m %s\n" "$label"; fails=$((fails+1)); fi
+	}
+	bold "== Runtime =="
+	check "node v24" bash -c 'node -v | grep -q "^v24\."'
+	check "docker" docker --version
+	check "docker compose" docker compose version
+	bold "== Services =="
+	check "tailscaled" systemctl is-active tailscaled
+	check "cockpit" systemctl is-active cockpit.socket
+	bold "== Stacks =="
+	check "homeassistant :8123" bash -c 'curl -fsSL http://localhost:8123 >/dev/null 2>&1'
+	check "jellyfin :8096" bash -c 'curl -fsSL http://localhost:8096 >/dev/null 2>&1'
+	check "vaultwarden :8222" bash -c 'curl -fsSL http://localhost:8222 >/dev/null 2>&1'
+	check "grafana :3000" bash -c 'curl -fsSL http://localhost:3000 >/dev/null 2>&1'
+	bold "== Disk =="
+	df -h / /opt /srv 2>/dev/null | grep -v Filesystem || true
+	echo
+	if [[ "$fails" -eq 0 ]]; then bold "ALL OK"
+	else bold "$fails check(s) failed"; exit 1; fi
+}
+
+show_logs() {
+	local svc="${1:-}"
+	if [[ -z "$svc" ]]; then
+		echo "Usage: homeos logs <service>"
+		echo "Services: homeassistant, jellyfin, vaultwarden, prometheus, grafana, watchtower"
+		exit 1
+	fi
+	if [[ -f "$DATA_DIR/stacks/$svc/docker-compose.yml" ]]; then
+		docker compose -f "$DATA_DIR/stacks/$svc/docker-compose.yml" logs -f
+	else
+		docker logs -f "$svc" 2>/dev/null || echo "Service '$svc' not found"
+	fi
+}
+
+do_restart() {
+	local svc="${1:-}"
+	if [[ -z "$svc" ]]; then
+		echo "Usage: homeos restart <service>"
+		echo "Services: homeassistant, jellyfin, vaultwarden, prometheus, grafana, watchtower"
+		exit 1
+	fi
+	if [[ -f "$DATA_DIR/stacks/$svc/docker-compose.yml" ]]; then
+		docker compose -f "$DATA_DIR/stacks/$svc/docker-compose.yml" restart
+		echo "Restarted $svc"
+	else
+		docker restart "$svc" 2>/dev/null || echo "Service '$svc' not found"
+	fi
+}
+
+do_backup() {
+	if [[ -x /etc/cron.daily/homeos-backup ]]; then
+		sudo /etc/cron.daily/homeos-backup
+	else
+		echo "Backup script not configured. Set BACKUP_TARGET in /etc/homeos/homeos.conf"
+		exit 1
+	fi
+}
+
+show_config() {
+	if [[ -f /etc/homeos/homeos.conf ]]; then
+		cat /etc/homeos/homeos.conf
+	else
+		echo "No config file at /etc/homeos/homeos.conf"
+		exit 1
+	fi
+}
+
+do_uninstall() {
+	sudo bash "$(which homeos-install.sh 2>/dev/null || echo /installer/install.sh)" uninstall 2>/dev/null || {
+		echo "Run: sudo bash /path/to/install.sh uninstall"
+		exit 1
+	}
+}
+
+do_update() {
+	echo "Pulling latest HomeOS installer..."
+	curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh
+	sudo bash /tmp/homeos-install.sh --unattended
+}
+
 case "${1:-status}" in
-  status)
-    bold "== HomeOS Status =="
-    echo "OS: $(cat /etc/os-release | grep ^PRETTY_NAME= | cut -d= -f2 | tr -d '\"')"
-    echo "Uptime: $(uptime -p 2>/dev/null || uptime)"
-    echo ""
-    bold "== Services =="
-    for svc in docker tailscaled cockpit.socket caddy casaos; do
-      if systemctl is-active "$svc" &>/dev/null; then
-        echo "  ✓ $svc"
-      else
-        echo "  ✗ $svc"
-      fi
-    done
-    echo ""
-    bold "== Containers =="
-    docker ps --format "  {{.Names}} ({{.Status}})" 2>/dev/null || echo "  Docker not available"
-    echo ""
-    bold "== Disk Usage =="
-    df -h / /opt /srv 2>/dev/null | grep -v Filesystem || true
-    ;;
-
-  doctor)
-    fails=0
-    check() {
-      local label="$1"; shift
-      if "$@" >/dev/null 2>&1; then printf "  \033[32m✓\033[0m %s\n" "$label"
-      else printf "  \033[31m✗\033[0m %s\n" "$label"; fails=$((fails+1)); fi
-    }
-    bold "== Runtime =="
-    check "node v24" bash -c 'node -v | grep -q "^v24\."'
-    check "docker" docker --version
-    check "docker compose" docker compose version
-    bold "== Services =="
-    check "tailscaled" systemctl is-active tailscaled
-    check "cockpit" systemctl is-active cockpit.socket
-    echo
-    if [[ "$fails" -eq 0 ]]; then bold "ALL OK"
-    else bold "$fails check(s) failed"; exit 1; fi
-    ;;
-
-  update)
-    echo "Pulling latest HomeOS installer..."
-    curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh
-    sudo bash /tmp/homeos-install.sh --unattended
-    ;;
-
-  *)
-    echo "Usage: homeos {status|doctor|update}"
-    exit 1
-    ;;
+	status) show_status ;;
+	doctor) show_doctor ;;
+	logs) shift || true; show_logs "$@" ;;
+	restart) shift || true; do_restart "$@" ;;
+	backup) do_backup ;;
+	config) show_config ;;
+	uninstall) do_uninstall ;;
+	update) do_update ;;
+	--version|-v) echo "HomeOS CLI v1.0.0" ;;
+	*) echo "Usage: homeos {status|doctor|logs|restart|backup|config|update|--version}"; exit 1 ;;
 esac
 CLIEOF
 
 	chmod +x /usr/local/bin/homeos
+
+	echo "homeos_cli=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
+
 	ok "HomeOS CLI installed. Run: homeos status"
 }
 
@@ -1038,6 +1194,11 @@ print_summary() {
 	echo -e "${BOLD}Management:${RESET}"
 	echo "  homeos status   - Show system status"
 	echo "  homeos doctor   - Run health checks"
+	echo "  homeos logs     - View container logs"
+	echo "  homeos restart  - Restart a service"
+	echo "  homeos backup   - Trigger backup"
+	echo "  homeos config   - Show configuration"
+	echo "  homeos update   - Update HomeOS"
 	echo
 	echo -e "${YELLOW}SSH Access:${RESET}"
 	echo "  ssh $HOMEOS_ADMIN_USER@$(hostname -I | awk '{print $1}')"
@@ -1065,22 +1226,48 @@ parse_args() {
 			HOMEOS_MODE="${2:-full}"
 			shift 2
 			;;
+		--dry-run)
+			DRY_RUN="yes"
+			shift
+			;;
+		--skip-checks)
+			SKIP_CHECKS="yes"
+			shift
+			;;
+		--yes)
+			YES_FLAG="yes"
+			shift
+			;;
+		--version | -v)
+			echo "HomeOS Universal Installer v${HI_VERSION}"
+			exit 0
+			;;
 		--help | -h)
 			cat <<HELP
 HomeOS Universal Installer v${HI_VERSION}
 
-Usage: sudo $0 [OPTIONS]
+Usage: sudo $0 [OPTIONS] [uninstall]
 
 Options:
   --config <path>      Path to config file
   --unattended         Non-interactive mode (requires config)
   --mode <full|minimal> Installation mode
+  --dry-run            Show what would be installed without making changes
+  --skip-checks        Skip pre-flight checks
+  --yes                Auto-accept prompts in interactive mode
+  --version            Show version
   --help               Show this help
+
+Commands:
+  (no command)         Run installer
+  uninstall            Remove HomeOS
 
 Examples:
   sudo $0                                    # Interactive install
   sudo $0 --config /etc/homeos/homeos.conf   # Use custom config
   sudo $0 --unattended --mode minimal        # Unattended minimal
+  sudo $0 --dry-run                          # Preview installation
+  sudo $0 uninstall                          # Remove HomeOS
 
 Config locations (first found wins):
   - --config <path>
@@ -1105,7 +1292,6 @@ main() {
 	parse_args "$@"
 	check_root
 
-	# Start logging
 	mkdir -p "$(dirname "$LOG_FILE")"
 	: >"$LOG_FILE"
 
@@ -1113,7 +1299,6 @@ main() {
 	detect_os
 	load_config
 
-	# Minimal mode: reduce components
 	if [[ "$HOMEOS_MODE" == "minimal" ]]; then
 		INSTALL_CASAOS="no"
 		INSTALL_HOMEASSISTANT="no"
@@ -1126,9 +1311,38 @@ main() {
 	fi
 
 	confirm_install
+	preflight_checks
 
 	log "Starting installation..."
 	log_to_file "INSTALL START mode=$HOMEOS_MODE os=$OS_ID $OS_VERSION"
+
+	if [[ "$DRY_RUN" == "yes" ]]; then
+		section "Dry Run Preview"
+		info "OS: $OS_ID $OS_VERSION ($OS_FAMILY)"
+		info "Mode: $HOMEOS_MODE"
+		info "Admin: $HOMEOS_ADMIN_USER"
+		info ""
+		info "Components that would be installed:"
+		[[ "$INSTALL_BASE" == "yes" ]] && info "  - Base system (packages, user, directories)"
+		[[ "$INSTALL_DOCKER" == "yes" ]] && info "  - Docker CE + Compose"
+		[[ "$INSTALL_NODE" == "yes" ]] && info "  - Node.js 24 + pnpm + Bun"
+		[[ "$INSTALL_TAILSCALE" == "yes" ]] && info "  - Tailscale VPN"
+		[[ "$INSTALL_CADDY" == "yes" ]] && info "  - Caddy reverse proxy"
+		[[ "$INSTALL_COCKPIT" == "yes" ]] && info "  - Cockpit + file sharing"
+		[[ "$INSTALL_CASAOS" == "yes" ]] && info "  - CasaOS"
+		[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && info "  - Home Assistant (:8123)"
+		[[ "$INSTALL_JELLYFIN" == "yes" ]] && info "  - Jellyfin (:8096)"
+		[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && info "  - Vaultwarden (:8222)"
+		[[ "$INSTALL_AI_CLIS" == "yes" ]] && info "  - AI CLIs"
+		[[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && info "  - GitHub dev tools"
+		[[ "$INSTALL_MONITORING" == "yes" ]] && info "  - Prometheus (:9091) + Grafana (:3000)"
+		[[ "$INSTALL_BACKUPS" == "yes" ]] && info "  - Backups (restic)"
+		[[ "$INSTALL_FIREWALL" == "yes" ]] && info "  - Firewall (UFW/firewalld)"
+		[[ "$INSTALL_SSH_HARDEN" == "yes" ]] && info "  - SSH hardening"
+		info ""
+		ok "Dry run complete. No changes made."
+		exit 0
+	fi
 
 	install_base
 	install_docker
@@ -1151,6 +1365,17 @@ main() {
 
 	log_to_file "INSTALL COMPLETE"
 	print_summary
+
+	if command -v homeos &>/dev/null; then
+		section "Post-Install Health Check"
+		homeos doctor 2>/dev/null || warn "Some health checks failed. Review output above."
+	fi
 }
+
+if [[ "${1:-}" == "uninstall" ]]; then
+	check_root
+	uninstall_homeos
+	exit 0
+fi
 
 main "$@"
