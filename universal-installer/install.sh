@@ -22,7 +22,6 @@ IFS=$'\n\t'
 # ------------------------------------------------------------------------------
 HI_VERSION="1.0.0"
 HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HI_LIB_DIR="${HI_DIR}/lib"
 
 # ------------------------------------------------------------------------------
 # DEFAULT CONFIGURATION (overridden by config file)
@@ -55,7 +54,6 @@ TAILNET_NAME=""
 CADDY_DOMAIN=""
 TAILSCALE_AUTH_KEY=""
 VAULTWARDEN_ADMIN_TOKEN=""
-HOMEASSISTANT_API_TOKEN=""
 BACKUP_TARGET=""
 ANTHROPIC_API_KEY=""
 OPENAI_API_KEY=""
@@ -65,7 +63,6 @@ EXTRA_UDP_PORTS=""
 DOCKER_NETWORK_RANGE="172.30.0.0/16"
 TIMEZONE=""
 GITHUB_TOOLS="all"
-ENABLE_AUDIT="yes"
 
 # ------------------------------------------------------------------------------
 # STATE
@@ -344,7 +341,9 @@ install_base() {
 	# Create admin user if not exists
 	if ! id "$HOMEOS_ADMIN_USER" &>/dev/null; then
 		log "Creating admin user: $HOMEOS_ADMIN_USER"
-		useradd -m -s /bin/bash -G sudo "$HOMEOS_ADMIN_USER"
+		local sudo_group="sudo"
+		[[ "$OS_FAMILY" == "rhel" ]] && sudo_group="wheel"
+		useradd -m -s /bin/bash -G "$sudo_group" "$HOMEOS_ADMIN_USER"
 		echo "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" | chpasswd
 		# Force password change on first login (skip in unattended mode)
 		if [[ "$HOMEOS_UNATTENDED" != "yes" ]]; then
@@ -459,7 +458,9 @@ install_tailscale() {
 
 	if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
 		log "Authenticating Tailscale..."
-		tailscale up --authkey "$TAILSCALE_AUTH_KEY" --accept-routes 2>/dev/null || true
+		local ts_args=(--authkey "$TAILSCALE_AUTH_KEY" --accept-routes)
+		[[ -n "$TAILNET_NAME" ]] && ts_args+=(--hostname "$TAILNET_NAME")
+		tailscale up "${ts_args[@]}" 2>/dev/null || true
 	else
 		warn "No TAILSCALE_AUTH_KEY set. Run 'sudo tailscale up' manually after install."
 	fi
@@ -527,7 +528,7 @@ install_cockpit() {
 		pkg_install cockpit cockpit-storaged cockpit-networkmanager cockpit-podman cockpit-packagekit
 
 		# 45Drives modules (Debian only - they don't have RHEL packages)
-		curl -fsSL https://repo.45drives.com/key/gpg.asc | gpg --dearmor -o /usr/share/keyrings/45drives-archive-keyring.gpg
+		curl -fsSL https://repo.45drives.com/key/gpg.asc | gpg --batch --yes --dearmor -o /usr/share/keyrings/45drives-archive-keyring.gpg
 		curl -fsSL https://repo.45drives.com/lists/45drives.sources -o /etc/apt/sources.list.d/45drives.sources
 		pkg_update
 		pkg_install cockpit-file-sharing cockpit-navigator cockpit-identities 2>/dev/null || warn "Some 45Drives modules unavailable for this release"
@@ -742,13 +743,19 @@ install_ai_clis() {
 		curl -fsSL https://opencode.ai/install | bash 2>/dev/null || warn "opencode install failed"
 	fi
 
-	# Configure API keys for admin user
+	# Configure API keys for admin user (idempotent: only add if not present)
 	local admin_rc="${HOMEOS_ADMIN_HOME}/.bashrc"
 	[[ -f "${HOMEOS_ADMIN_HOME}/.zshrc" ]] && admin_rc="${HOMEOS_ADMIN_HOME}/.zshrc"
 
-	[[ -n "$ANTHROPIC_API_KEY" ]] && echo "export ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >>"$admin_rc"
-	[[ -n "$OPENAI_API_KEY" ]] && echo "export OPENAI_API_KEY=$OPENAI_API_KEY" >>"$admin_rc"
-	[[ -n "$GOOGLE_API_KEY" ]] && echo "export GOOGLE_API_KEY=$GOOGLE_API_KEY" >>"$admin_rc"
+	if [[ -n "$ANTHROPIC_API_KEY" ]] && ! grep -q "ANTHROPIC_API_KEY=" "$admin_rc" 2>/dev/null; then
+		echo "export ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >>"$admin_rc"
+	fi
+	if [[ -n "$OPENAI_API_KEY" ]] && ! grep -q "OPENAI_API_KEY=" "$admin_rc" 2>/dev/null; then
+		echo "export OPENAI_API_KEY=$OPENAI_API_KEY" >>"$admin_rc"
+	fi
+	if [[ -n "$GOOGLE_API_KEY" ]] && ! grep -q "GOOGLE_API_KEY=" "$admin_rc" 2>/dev/null; then
+		echo "export GOOGLE_API_KEY=$GOOGLE_API_KEY" >>"$admin_rc"
+	fi
 
 	ok "AI CLIs installed"
 }
@@ -780,7 +787,7 @@ install_github_tools() {
 		local repo="${tools[$name]}"
 		local dest="$tools_dir/$name"
 
-		if [[ "$GITHUB_TOOLS" != "all" && ! " $GITHUB_TOOLS " =~ " $name " ]]; then
+		if [[ "$GITHUB_TOOLS" != "all" && ! " $GITHUB_TOOLS " =~ $name ]]; then
 			continue
 		fi
 
@@ -904,6 +911,7 @@ CRON
 # SECTION: HOMEOS CLI
 # ------------------------------------------------------------------------------
 install_homeos_cli() {
+	[[ "$INSTALL_BASE" == "yes" ]] || return 0
 	section "HomeOS CLI"
 
 	cat >/usr/local/bin/homeos <<'CLIEOF'
@@ -979,6 +987,7 @@ CLIEOF
 # WATCHTOWER
 # ------------------------------------------------------------------------------
 install_watchtower() {
+	[[ "$INSTALL_DOCKER" == "yes" ]] || return 0
 	section "Watchtower (auto-updates)"
 
 	local stack_dir="$HOMEOS_DATA_DIR/stacks/watchtower"
