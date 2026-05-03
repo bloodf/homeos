@@ -32,3 +32,39 @@ TEST_HOSTNAME=homeos-test-19373 TEST_FAKE_KEY=<redacted fake test key>
 2026-05-02T00:06:30Z — RELEASE v0.8.0 sha=af958b0; GitHub release published https://github.com/bloodf/homeos/releases/tag/v0.8.0; CI build run 25238338081 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
 2026-05-02T00:21:30Z — RELEASE v0.9.0 sha=df593f7; GitHub release published https://github.com/bloodf/homeos/releases/tag/v0.9.0; CI build run 25238707065 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
 2026-05-02T01:34:00Z — RELEASE v0.9.5 sha=1ae0e2c; GitHub release published https://github.com/bloodf/homeos/releases/tag/v0.9.5; CI build run 25240414035 passed for amd64/arm64 and attached release artifacts; QEMU not run per v0.5-v0.9 roadmap policy.
+--- v1 final validation start  ---
+commit=b39718f
+describe=v0.9.5-2-gb39718f-dirty
+branch=main
+status_start<<EOF
+ M .omc/state/hud-state.json
+ M .omc/state/hud-stdin-cache.json
+ M HANDOFF-LOG.md
+?? subagent-ideas-glm51.md
+?? subagent-ideas-k2p6.md
+?? subagent-ideas-m27.md
+?? subagent-ideas-scout.md
+EOF
+--- v1 final validation prepared 2026-05-02T03:10:28-0300 ---
+TEST_HOSTNAME=homeos-v1-final-19367 TEST_FAKE_KEY=sk-ant-test-3d8763cbd945698db683548e9666e46c
+4e0d97c414bb7d33c31a1111fcf5e146c16dca038cc99383827b022b1700bef0  dist/homeos-debian-13.4-amd64.iso
+--- v1 qemu attempt 1 failed 2026-05-02T03:19:03-0300 ---
+FAIL: Debian installer stopped at Partition disks: No root file system. Root cause hypothesis: QEMU virtio disks are /dev/vda,/dev/vdb but preseed hardcoded /dev/sda,/dev/sdb.
+198e9512cab9d5891247f9a763cb7e6687af5f07b228e7cec23365ff3618e43a  dist/homeos-debian-13.4-amd64.iso
+--- v1 qemu attempt 2 rebuilt 2026-05-02T03:20:03-0300 ---
+Fix: dynamic installer disk selection for OS and optional second disk.
+--- v1 qemu attempt 2 failed 2026-05-02T04:04:25-0300 ---
+FAIL: installer passed partitioning/grub, then hung in late_command lvcreate for optional vg1 swap/cache on /dev/vdb (wchan __do_semtimedop).
+159d68fc1667b3b209f72b926a7973b0c28d8827a772e566f9ab963279f2627b  dist/homeos-debian-13.4-amd64.iso
+--- v1 qemu attempt 3 rebuilt 2026-05-02T04:05:18-0300 ---
+Fix: removed optional second-disk LVM creation from installer late_command; installer now only owns OS disk.
+--- v1 qemu attempt 3 harness failure 2026-05-02T05:09:01-0300 ---
+Installer completed and rebooted, but QEMU launch used '-boot d', so VM booted the CD again instead of installed disk. Fixing test harness to use first-boot-only CD boot.
+--- v1 qemu attempt 4 failed 2026-05-02T09:38:57-0300 ---
+FAIL: SSH was reachable, but baked-key login blocked by expired password; after manual password change bootstrap failed at Homebrew formulas because QEMU TCG default CPU lacked SSSE3.
+Fixes: move public password expiry after successful bootstrap, create admin .config before shell config copy, set QEMU CPU to max in visible harness.
+2522980a18a0f2800bec78a5d49ef52777afb44af0a16040517852de0ea4ce41  dist/homeos-debian-13.4-amd64.iso
+--- v1 qemu attempt 5 rebuilt 2026-05-02T09:39:16-0300 ---
+TEST_HOSTNAME=homeos-v1-final-25173 TEST_FAKE_KEY=sk-ant-test-1bac19112a29d198933984fb2851da20
+ISO SHA256: 7b40bfb970a06a8c821f2dc4d1c64de5a8ee0445cfa23020da4cbc8841b695d9
+TEST_HOSTNAME=homeos-v1-final-1394 TEST_FAKE_KEY=sk-ant-test-445df85bb2eb2b6f6293f2e90946664d

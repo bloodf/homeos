@@ -1,12 +1,14 @@
 # Portable Installer Audit Report
+
 **Date:** 2026-05-03
-**Scope:** `install/` directory — bootstrap.sh, homeos-install.sh, lib/*.sh, modules/*.sh
+**Scope:** `install/` directory — bootstrap.sh, homeos-install.sh, lib/_.sh, modules/_.sh
 
 ---
 
 ## Architecture
 
 The portable installer is a modular bash framework with:
+
 - `bootstrap.sh` — one-liner entrypoint that clones the repo and launches the installer
 - `homeos-install.sh` — main orchestrator with CLI parsing, interactive menus, dry-run, and apply
 - `lib/ui.sh` — ANSI UI primitives (header, menu, confirm, prompt, multi-select)
@@ -22,6 +24,7 @@ The portable installer is a modular bash framework with:
 ## Issues Found
 
 ### 🔴 CRITICAL — `lib/pkg.sh` apt repo keyring bug
+
 **File:** `lib/pkg.sh` line 48-55
 
 ```bash
@@ -39,6 +42,7 @@ curl -fsSL "$PKG_REPO_KEY" | gpg --dearmor -o "$keyring"
 ---
 
 ### 🔴 CRITICAL — `modules/monitoring.sh` port collision
+
 **File:** `modules/monitoring.sh` line 35-44
 
 The monitoring compose exposes Prometheus on port 9090 and Grafana on 3000.
@@ -51,6 +55,7 @@ But Cockpit (in the cockpit module) also uses port 9090.
 ---
 
 ### 🟡 HIGH — `homeos-install.sh` does not handle `--source` correctly in bootstrap flow
+
 **File:** `homeos-install.sh` line 27-30
 
 ```bash
@@ -74,6 +79,7 @@ But if the user downloads the script manually and runs it from `~/Downloads/inst
 ---
 
 ### 🟡 HIGH — `modules/casaos.sh` installs via curl pipe without checksum verification
+
 **File:** `modules/casaos.sh` line 24
 
 ```bash
@@ -87,6 +93,7 @@ curl -fsSL https://get.casaos.io | bash
 ---
 
 ### 🟡 HIGH — `modules/ai-clis.sh` does nothing without Ansible
+
 **File:** `modules/ai-clis.sh` line 15-22
 
 ```bash
@@ -109,6 +116,7 @@ apply() {
 ---
 
 ### 🟡 MEDIUM — `lib/runner.sh` dependency resolution max 32 passes
+
 **File:** `lib/runner.sh` line 85-108
 
 ```bash
@@ -122,6 +130,7 @@ If there are >32 dependency hops (unlikely but possible), resolution silently st
 ---
 
 ### 🟡 MEDIUM — `modules/docker.sh` missing usermod for admin user
+
 **File:** `modules/docker.sh`
 
 The Docker module installs docker-ce but never adds the current user to the docker group. The Ansible role does this via `ansible.builtin.user: groups: docker`, but the standalone path doesn't.
@@ -133,6 +142,7 @@ The Docker module installs docker-ce but never adds the current user to the dock
 ---
 
 ### 🟡 MEDIUM — `modules/stacks.sh` requires Ansible, no standalone
+
 **File:** `modules/stacks.sh` line 15-21
 
 Same issue as ai-clis. No standalone compose deployment logic.
@@ -142,6 +152,7 @@ Same issue as ai-clis. No standalone compose deployment logic.
 ---
 
 ### 🟡 MEDIUM — `modules/backups.sh` missing state file creation
+
 **File:** `modules/backups.sh`
 
 The module installs restic but doesn't create `/var/lib/homeos/backup.env` or set up the cron schedule. The Ansible role handles this, but the standalone path just installs the package.
@@ -149,6 +160,7 @@ The module installs restic but doesn't create `/var/lib/homeos/backup.env` or se
 ---
 
 ### 🟢 LOW — `lib/ui.sh` `ui::menu` lacks "back" option
+
 **File:** `lib/ui.sh`
 
 In interactive mode, once a user selects a mode and profile, they can't go back. A "back" option would improve UX.
@@ -156,6 +168,7 @@ In interactive mode, once a user selects a mode and profile, they can't go back.
 ---
 
 ### 🟢 LOW — `homeos-install.sh` `--yes` bypasses appliance confirmation
+
 **File:** `homeos-install.sh` line 123-135
 
 ```bash
@@ -173,6 +186,7 @@ This is correct, but the error message says "non-interactive runs requires both 
 ---
 
 ### 🟢 LOW — `bootstrap.sh` does not verify git clone success
+
 **File:** `bootstrap.sh` line 42-46
 
 ```bash
@@ -197,4 +211,3 @@ If both clones fail (network issue, repo private), the script continues and trie
    - All selected features install without errors
    - Services start correctly
    - `homeos doctor` passes (or documents QEMU limitations)
-

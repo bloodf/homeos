@@ -14,13 +14,13 @@ detect() { docker ps --format '{{.Names}}' 2>/dev/null | grep -qE '^(prometheus|
 plan() { echo "Deploy monitoring compose stack"; }
 
 apply() {
-  if [[ "${HI_DRY_RUN:-0}" == "1" ]]; then
-    echo "[monitoring] would deploy prometheus + grafana compose"
-    return 0
-  fi
-  local target="/opt/homeos/stacks/monitoring"
-  mkdir -p "$target"
-  cat > "$target/compose.yml" <<'YAML'
+	if [[ "${HI_DRY_RUN:-0}" == "1" ]]; then
+		echo "[monitoring] would deploy prometheus + grafana compose"
+		return 0
+	fi
+	local target="/opt/homeos/stacks/monitoring"
+	mkdir -p "$target"
+	cat >"$target/compose.yml" <<'YAML'
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -38,10 +38,10 @@ volumes:
   prom-data: {}
   grafana-data: {}
 YAML
-  ( cd "$target" && docker compose up -d ) || return 1
+	(cd "$target" && docker compose up -d) || return 1
 }
 
 rollback() {
-  [[ "${HI_DRY_RUN:-0}" == "1" ]] && return 0
-  ( cd /opt/homeos/stacks/monitoring && docker compose down ) 2>/dev/null || true
+	[[ "${HI_DRY_RUN:-0}" == "1" ]] && return 0
+	(cd /opt/homeos/stacks/monitoring && docker compose down) 2>/dev/null || true
 }

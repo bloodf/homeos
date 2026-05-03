@@ -39,7 +39,7 @@
 - name: Configure unattended-upgrades (security only)
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/52homeos-unattended
-    mode: '0644'
+    mode: "0644"
     content: |
       Unattended-Upgrade::Origins-Pattern {
         "origin=Debian,codename=${distro_codename},label=Debian-Security";
@@ -84,7 +84,7 @@
 - name: Fail2ban sshd jail
   ansible.builtin.copy:
     dest: /etc/fail2ban/jail.d/homeos-sshd.local
-    mode: '0644'
+    mode: "0644"
     content: |
       [sshd]
       enabled = true

@@ -12,20 +12,20 @@ home server. No USB flashing, no ISO burning, no bare-metal required.
 
 After running the installer, your box has:
 
-| Layer | What | Port |
-|-------|------|------|
-| Container dashboard | [CasaOS](https://www.casaos.io/) | `:81` |
-| Smart home hub | [Home Assistant](https://www.home-assistant.io/) (Docker) | `:8123` |
-| Media server | [Jellyfin](https://jellyfin.org/) with Intel QSV/VAAPI | `:8096` |
-| NAS / file sharing | [Cockpit](https://cockpit-project.org/) + 45Drives modules | `:9090` |
-| Reverse proxy | [Caddy](https://caddyserver.com/) with Tailscale certs | `:80` / `:443` |
-| Secrets vault | [Vaultwarden](https://github.com/dani-garcia/vaultwarden) | `:8222` |
-| Monitoring | Prometheus + Grafana | `:9091` / `:3000` |
-| Auto-updates | [Watchtower](https://containrrr.dev/watchtower/) | — |
-| Backups | [Restic](https://restic.net/) cron | — |
-| VPN | [Tailscale](https://tailscale.com/) | — |
-| Dev runtime | Node 24 LTS, Bun, pnpm, Docker CE | — |
-| AI coding CLIs | Claude Code, Codex, Gemini, Cursor, Kimi | — |
+| Layer               | What                                                       | Port              |
+| ------------------- | ---------------------------------------------------------- | ----------------- |
+| Container dashboard | [CasaOS](https://www.casaos.io/)                           | `:81`             |
+| Smart home hub      | [Home Assistant](https://www.home-assistant.io/) (Docker)  | `:8123`           |
+| Media server        | [Jellyfin](https://jellyfin.org/) with Intel QSV/VAAPI     | `:8096`           |
+| NAS / file sharing  | [Cockpit](https://cockpit-project.org/) + 45Drives modules | `:9090`           |
+| Reverse proxy       | [Caddy](https://caddyserver.com/) with Tailscale certs     | `:80` / `:443`    |
+| Secrets vault       | [Vaultwarden](https://github.com/dani-garcia/vaultwarden)  | `:8222`           |
+| Monitoring          | Prometheus + Grafana                                       | `:9091` / `:3000` |
+| Auto-updates        | [Watchtower](https://containrrr.dev/watchtower/)           | —                 |
+| Backups             | [Restic](https://restic.net/) cron                         | —                 |
+| VPN                 | [Tailscale](https://tailscale.com/)                        | —                 |
+| Dev runtime         | Node 24 LTS, Bun, pnpm, Docker CE                          | —                 |
+| AI coding CLIs      | Claude Code, Codex, Gemini, Cursor, Kimi                   | —                 |
 
 Plus 10 GitHub dev tools under `/opt/homeos/tools/`.
 
@@ -62,12 +62,12 @@ curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-instal
 
 ## OS Support
 
-| OS | Minimum Version |
-|---|---|
-| Debian | 12 (Bookworm) |
-| Ubuntu | 22.04 LTS |
-| Fedora | 38 |
-| RHEL / Rocky / Alma | 9 |
+| OS                  | Minimum Version |
+| ------------------- | --------------- |
+| Debian              | 12 (Bookworm)   |
+| Ubuntu              | 22.04 LTS       |
+| Fedora              | 38              |
+| RHEL / Rocky / Alma | 9               |
 
 Works on bare metal, VMs (Proxmox/QEMU/VirtualBox), cloud (AWS/DigitalOcean/Linode), and ARM64 (Raspberry Pi, Apple Silicon VMs).
 
@@ -98,6 +98,7 @@ MEDIA_PATH="/srv/media"
 ```
 
 **Config search order:**
+
 1. `--config <path>` flag
 2. `/etc/homeos/homeos.conf`
 3. `~/.config/homeos/homeos.conf`
@@ -117,13 +118,13 @@ homeos update    # Pull latest installer and re-run
 
 ## Why a script instead of an ISO?
 
-| Before (ISO) | Now (Script) |
-|---|---|
-| Burn USB, bare-metal install only | Runs on existing VMs, cloud, old laptops |
-| Fixed disk layout | Works with any partition scheme |
-| Single architecture per ISO | amd64, arm64, any platform |
-| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file |
-| Hard to iterate | Edit config, re-run instantly |
+| Before (ISO)                             | Now (Script)                             |
+| ---------------------------------------- | ---------------------------------------- |
+| Burn USB, bare-metal install only        | Runs on existing VMs, cloud, old laptops |
+| Fixed disk layout                        | Works with any partition scheme          |
+| Single architecture per ISO              | amd64, arm64, any platform               |
+| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file         |
+| Hard to iterate                          | Edit config, re-run instantly            |
 
 ## Repository Layout
 
@@ -143,14 +144,14 @@ homeos/
 
 ## Documentation
 
-| Doc | What |
-|---|---|
-| [`universal-installer/README.md`](universal-installer/README.md) | Full installer documentation |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it all fits together (legacy) |
-| [docs/NAS.md](docs/NAS.md) | USB drives, Samba, NFS |
-| [docs/SECURITY.md](docs/SECURITY.md) | Threat model + hardening |
-| [docs/HARDWARE.md](docs/HARDWARE.md) | Supported hardware, GPU |
-| [docs/FAQ.md](docs/FAQ.md) | Common questions |
+| Doc                                                              | What                              |
+| ---------------------------------------------------------------- | --------------------------------- |
+| [`universal-installer/README.md`](universal-installer/README.md) | Full installer documentation      |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                     | How it all fits together (legacy) |
+| [docs/NAS.md](docs/NAS.md)                                       | USB drives, Samba, NFS            |
+| [docs/SECURITY.md](docs/SECURITY.md)                             | Threat model + hardening          |
+| [docs/HARDWARE.md](docs/HARDWARE.md)                             | Supported hardware, GPU           |
+| [docs/FAQ.md](docs/FAQ.md)                                       | Common questions                  |
 
 ## Security
 

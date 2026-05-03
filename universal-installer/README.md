@@ -6,13 +6,13 @@ HomeOS is now a **universal shell installer** instead of a custom ISO. Run it on
 
 ## Why a script instead of an ISO?
 
-| ISO Distro | Universal Script |
-|---|---|
-| Requires burning USB, bare-metal install | Runs on existing VMs, cloud instances, or old laptops |
-| Fixed disk layout | Works with any existing partition scheme |
-| Single architecture per ISO | Works on amd64, arm64, any QEMU/Proxmox/EC2/DigitalOcean VM |
-| Hard to update | `homeos update` pulls latest installer and re-runs |
-| Complex build pipeline (`docker`, `xorriso`) | Just `curl | sudo bash` |
+| ISO Distro                                   | Universal Script                                            |
+| -------------------------------------------- | ----------------------------------------------------------- | ---------- |
+| Requires burning USB, bare-metal install     | Runs on existing VMs, cloud instances, or old laptops       |
+| Fixed disk layout                            | Works with any existing partition scheme                    |
+| Single architecture per ISO                  | Works on amd64, arm64, any QEMU/Proxmox/EC2/DigitalOcean VM |
+| Hard to update                               | `homeos update` pulls latest installer and re-runs          |
+| Complex build pipeline (`docker`, `xorriso`) | Just `curl                                                  | sudo bash` |
 
 ## Quick Start
 
@@ -47,34 +47,40 @@ sudo bash install.sh --mode minimal
 ## What Gets Installed
 
 ### Core Infrastructure
+
 - **Docker CE** + Buildx + Compose plugin
 - **Node.js 24 LTS** + pnpm + Bun
 - **systemd services** for everything
 
 ### Web UIs & Management
-| Service | Port | Description |
-|---------|------|-------------|
-| CasaOS | `:81` | Container dashboard |
+
+| Service | Port    | Description                          |
+| ------- | ------- | ------------------------------------ |
+| CasaOS  | `:81`   | Container dashboard                  |
 | Cockpit | `:9090` | Server admin + 45Drives file sharing |
-| Grafana | `:3000` | Metrics dashboards |
+| Grafana | `:3000` | Metrics dashboards                   |
 
 ### Media & Home Automation
-| Service | Port | Description |
-|---------|------|-------------|
-| Home Assistant | `:8123` | Smart home hub |
-| Jellyfin | `:8096` | Media server (Intel QSV/VAAPI) |
-| Vaultwarden | `:8222` | Password vault |
+
+| Service        | Port    | Description                    |
+| -------------- | ------- | ------------------------------ |
+| Home Assistant | `:8123` | Smart home hub                 |
+| Jellyfin       | `:8096` | Media server (Intel QSV/VAAPI) |
+| Vaultwarden    | `:8222` | Password vault                 |
 
 ### Network & Access
+
 - **Tailscale** — Zero-config VPN
 - **Caddy** — Reverse proxy with automatic HTTPS
 - **UFW** (Debian) or **firewalld** (RHEL) — Firewall
 
 ### AI / Dev Tools
+
 - Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode
 - GitHub dev tools (hindsight, portless, claude-context, etc.)
 
 ### Monitoring & Backups
+
 - **Prometheus** `:9091` + **Grafana** `:3000`
 - **Watchtower** — Auto-update Docker containers
 - **restic** — Encrypted backups with cron schedule
@@ -110,6 +116,7 @@ MEDIA_PATH="/srv/media"
 ```
 
 **Config search order:**
+
 1. `--config <path>` flag
 2. `/etc/homeos/homeos.conf`
 3. `~/.config/homeos/homeos.conf`
@@ -127,14 +134,14 @@ homeos update    # Pull latest installer and re-run
 
 ## OS Support
 
-| OS | Minimum Version | Package Manager |
-|---|---|---|
-| Debian | 12 (Bookworm) | apt + UFW |
-| Ubuntu | 22.04 LTS | apt + UFW |
-| Fedora | 38 | dnf + firewalld |
-| RHEL | 9 | dnf + firewalld |
-| Rocky Linux | 9 | dnf + firewalld |
-| AlmaLinux | 9 | dnf + firewalld |
+| OS          | Minimum Version | Package Manager |
+| ----------- | --------------- | --------------- |
+| Debian      | 12 (Bookworm)   | apt + UFW       |
+| Ubuntu      | 22.04 LTS       | apt + UFW       |
+| Fedora      | 38              | dnf + firewalld |
+| RHEL        | 9               | dnf + firewalld |
+| Rocky Linux | 9               | dnf + firewalld |
+| AlmaLinux   | 9               | dnf + firewalld |
 
 ## Architecture
 
