@@ -163,8 +163,11 @@ preflight_checks() {
 	fi
 
 	case "$OS_ID" in
-		debian | ubuntu | fedora | rhel | rocky | almalinux) ok "OS supported: $OS_ID $OS_VERSION" ;;
-		*) err "Unsupported OS: $OS_ID"; fails=$((fails + 1)) ;;
+	debian | ubuntu | fedora | rhel | rocky | almalinux) ok "OS supported: $OS_ID $OS_VERSION" ;;
+	*)
+		err "Unsupported OS: $OS_ID"
+		fails=$((fails + 1))
+		;;
 	esac
 
 	if [[ "$fails" -gt 0 ]]; then
@@ -405,11 +408,11 @@ install_base() {
 		if [[ -n "${HOMEOS_ADMIN_PASSWORD:-}" ]]; then
 			admin_pass="$HOMEOS_ADMIN_PASSWORD"
 		elif [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
-			admin_pass="$(openssl rand -base64 24 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
+			admin_pass="$(openssl rand -base64 24 2>/dev/null || tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 24)"
 			log_to_file "GENERATED_PASSWORD"
 			mkdir -p "$INSTALL_STATE_DIR"
 			chmod 700 "$INSTALL_STATE_DIR"
-			echo "$admin_pass" > "$INSTALL_STATE_DIR/admin-password.txt"
+			echo "$admin_pass" >"$INSTALL_STATE_DIR/admin-password.txt"
 			chmod 600 "$INSTALL_STATE_DIR/admin-password.txt"
 			warn "Generated random admin password. Retrieve with: sudo cat $INSTALL_STATE_DIR/admin-password.txt"
 		else
@@ -430,7 +433,7 @@ install_base() {
 	mkdir -p "$HOMEOS_DATA_DIR" "$MEDIA_PATH"
 	chown "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" "$HOMEOS_DATA_DIR" 2>/dev/null || true
 
-	echo "base=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
+	echo "base=$(date -u +%FT%TZ)" >>"$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
 	ok "Base system installed"
 }
@@ -476,7 +479,7 @@ EOF
 
 	usermod -aG docker "$HOMEOS_ADMIN_USER" 2>/dev/null || true
 
-	echo "docker=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
+	echo "docker=$(date -u +%FT%TZ)" >>"$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
 	ok "Docker installed"
 }
@@ -1134,7 +1137,7 @@ CLIEOF
 
 	chmod +x /usr/local/bin/homeos
 
-	echo "homeos_cli=$(date -u +%FT%TZ)" >> "$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
+	echo "homeos_cli=$(date -u +%FT%TZ)" >>"$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
 	ok "HomeOS CLI installed. Run: homeos status"
 }

@@ -7,12 +7,12 @@ HomeOS is a **universal shell installer** that turns any Debian 12+, Ubuntu 22.0
 ## Why a script instead of an ISO?
 
 | ISO Distro                                   | Universal Script                                            |
-| -------------------------------------------- | ----------------------------------------------------------- |
+| -------------------------------------------- | ----------------------------------------------------------- | ---------- |
 | Requires burning USB, bare-metal install     | Runs on existing VMs, cloud instances, or old laptops       |
 | Fixed disk layout                            | Works with any existing partition scheme                    |
 | Single architecture per ISO                  | Works on amd64, arm64, any QEMU/Proxmox/EC2/DigitalOcean VM |
 | Hard to update                               | `homeos update` pulls latest installer and re-runs          |
-| Complex build pipeline (`docker`, `xorriso`) | Just `curl | sudo bash`                                     |
+| Complex build pipeline (`docker`, `xorriso`) | Just `curl                                                  | sudo bash` |
 
 ## Quick Start
 
@@ -195,16 +195,17 @@ Use `--skip-checks` to bypass. In `--dry-run` mode, checks are previewed but not
 
 ## OS Support
 
-| OS          | Minimum Version | Package Manager | Tested |
-| ----------- | --------------- | --------------- | ------ |
-| Debian      | 12 (Bookworm)   | apt + UFW       | ✅     |
+| OS          | Minimum Version | Package Manager | Tested   |
+| ----------- | --------------- | --------------- | -------- |
+| Debian      | 12 (Bookworm)   | apt + UFW       | ✅       |
 | Ubuntu      | 22.04 LTS       | apt + UFW       | ✅ 24.04 |
-| Fedora      | 38              | dnf + firewalld | ✅ 40  |
-| RHEL        | 9               | dnf + firewalld | —      |
-| Rocky Linux | 9               | dnf + firewalld | —      |
-| AlmaLinux   | 9               | dnf + firewalld | —      |
+| Fedora      | 38              | dnf + firewalld | ✅ 40    |
+| RHEL        | 9               | dnf + firewalld | —        |
+| Rocky Linux | 9               | dnf + firewalld | —        |
+| AlmaLinux   | 9               | dnf + firewalld | —        |
 
 **Known limitations:**
+
 - Fedora provides Node.js v20 in default repos (not v24). The installer accepts this. For v24 on Fedora, use manual NodeSource or build from source.
 - CasaOS install script may warn on Fedora (upstream limitation).
 
@@ -270,6 +271,7 @@ If you previously used the HomeOS ISO:
 ## Changelog
 
 ### v1.0.0
+
 - Pre-flight checks (disk, RAM, internet, OS)
 - `--dry-run`, `--skip-checks`, `--yes` flags
 - Random admin password generation in unattended mode

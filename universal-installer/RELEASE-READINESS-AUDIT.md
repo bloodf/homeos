@@ -323,6 +323,7 @@ All 10 must-fix blockers have been resolved. The installer is:
 The remaining 4 deferred items (signed checksums, CONTRIBUTING.md, CI/CD, website) are all post-release enhancements that do not block the core functionality.
 
 **Release checklist:**
+
 - [x] Code complete
 - [x] Tests passing
 - [x] Shellcheck clean

@@ -129,14 +129,14 @@ homeos --version    # Show CLI version
 
 ## Why a script instead of an ISO?
 
-| Before (ISO)                             | Now (Script)                              |
-| ---------------------------------------- | ----------------------------------------- |
-| Burn USB, bare-metal install only        | Runs on existing VMs, cloud, old laptops  |
-| Fixed disk layout                        | Works with any partition scheme           |
-| Single architecture per ISO              | amd64, arm64, any platform                |
-| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file          |
-| Hard to iterate                          | Edit config, re-run instantly             |
-| No uninstall                             | `sudo ./install.sh uninstall`             |
+| Before (ISO)                             | Now (Script)                                     |
+| ---------------------------------------- | ------------------------------------------------ |
+| Burn USB, bare-metal install only        | Runs on existing VMs, cloud, old laptops         |
+| Fixed disk layout                        | Works with any partition scheme                  |
+| Single architecture per ISO              | amd64, arm64, any platform                       |
+| Complex build pipeline (Docker, xorriso) | Single self-contained `.sh` file                 |
+| Hard to iterate                          | Edit config, re-run instantly                    |
+| No uninstall                             | `sudo ./install.sh uninstall`                    |
 | No pre-flight checks                     | Validates disk, RAM, internet, OS before install |
 
 ## Repository Layout
