@@ -133,6 +133,7 @@ INSTALL_AI_CLIS="yes"
 # Credentials
 TAILSCALE_AUTH_KEY="tskey-auth-..."
 VAULTWARDEN_ADMIN_TOKEN="..."
+GRAFANA_ADMIN_PASSWORD=""  # optional; random password generated if empty
 ANTHROPIC_API_KEY="sk-ant-..."
 OPENAI_API_KEY="sk-..."
 
@@ -156,7 +157,7 @@ EXTRA_TCP_PORTS="8443 8080"
 3. `~/.config/homeos/homeos.conf`
 4. `./homeos.conf` (same directory as install.sh)
 
-**Environment variable expansion:** Values like `ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}` are expanded at load time, so you can inject secrets via environment variables.
+**Environment variable expansion:** Simple values like `ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}` or `ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY` are expanded at load time. Command substitution is intentionally not evaluated.
 
 ## Management
 
@@ -187,6 +188,7 @@ Use `--skip-checks` to bypass. In `--dry-run` mode, checks are previewed but not
 ## Security
 
 - **Random admin password** generated in unattended mode (stored securely in `/var/lib/homeos/admin-password.txt`)
+- **Random Grafana password** generated when monitoring is enabled and `GRAFANA_ADMIN_PASSWORD` is empty (stored in `/var/lib/homeos/grafana-password.txt`)
 - **SSH hardening** — root login disabled, password auth only until SSH key is present
 - **Firewall** — Only required ports open (22, 80, 443, 8123, 8096, 8222, 3000, 9091, etc.)
 - **Fail2ban** — Brute-force protection on SSH
@@ -228,9 +230,11 @@ To remove HomeOS (preserves Docker, Node.js, and system packages):
 
 ```bash
 sudo bash install.sh uninstall
+# Non-interactive teardown:
+sudo bash install.sh --yes uninstall
 ```
 
-This stops all HomeOS containers, removes Docker volumes (optional), and deletes `/opt/homeos`, `/etc/homeos`, and the `homeos` CLI.
+This stops all HomeOS containers, removes Docker volumes (optional), and deletes HomeOS-owned files including `/opt/homeos`, `/etc/homeos`, the SSH hardening drop-in, the HomeOS sudoers file, generated HomeOS secrets, and the `homeos` CLI. Docker, Node.js, Caddy, Cockpit, and other system packages are preserved.
 
 ## Development
 

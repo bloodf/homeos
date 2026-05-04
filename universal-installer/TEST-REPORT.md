@@ -150,6 +150,11 @@ Running the installer a second time on the same system:
 **Problem:** `free -m` returns 0MB in Docker containers because cgroup memory limits aren't visible.
 **Fix:** Added `/proc/meminfo` fallback and graceful skip for container environments.
 
+### 14. External Review Fixes
+
+**Problems found by GLM-5.1/MiniMax M2.7 review:** unsafe `eval` config expansion, `--yes uninstall` argument order bug, non-interactive uninstall prompts, incomplete HomeOS-owned cleanup, Grafana default password, unattended-upgrades sed mismatch, and secret-generation fallback SIGPIPE under `pipefail`.
+**Fix:** Replaced eval expansion with strict `$VAR`/`${VAR}` expansion, unified command parsing, made uninstall automation-safe, cleaned HomeOS-owned artifacts, generated a random Grafana password, fixed sed to `[[:space:]]*`, and hardened secret generation.
+
 ---
 
 ## Known Limitations

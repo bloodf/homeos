@@ -28,6 +28,7 @@ INSTALL_STATE_DIR="/var/lib/homeos"
 DRY_RUN="no"
 SKIP_CHECKS="no"
 YES_FLAG="no"
+COMMAND="install"
 
 # ------------------------------------------------------------------------------
 # DEFAULT CONFIGURATION (overridden by config file)
@@ -69,6 +70,7 @@ EXTRA_UDP_PORTS=""
 DOCKER_NETWORK_RANGE="172.30.0.0/16"
 TIMEZONE=""
 GITHUB_TOOLS="all"
+GRAFANA_ADMIN_PASSWORD=""
 
 # ------------------------------------------------------------------------------
 # STATE
@@ -116,6 +118,16 @@ die() {
 log_to_file() {
 	local msg="$*"
 	printf '[%s] %s\n' "$(date -u +%FT%TZ)" "$msg" >>"$LOG_FILE" 2>/dev/null || true
+}
+
+generate_secret() {
+	if command -v openssl &>/dev/null && openssl rand -base64 24 2>/dev/null; then
+		return 0
+	fi
+
+	local secret
+	secret="$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 24 || true)"
+	printf '%s\n' "$secret"
 }
 
 # ------------------------------------------------------------------------------
@@ -241,6 +253,20 @@ find_config() {
 	return 1
 }
 
+expand_config_value() {
+	local value="$1" var_name
+
+	if [[ "$value" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$ ]]; then
+		var_name="${BASH_REMATCH[1]}"
+		printf '%s' "${!var_name-}"
+	elif [[ "$value" =~ ^\$([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
+		var_name="${BASH_REMATCH[1]}"
+		printf '%s' "${!var_name-}"
+	else
+		printf '%s' "$value"
+	fi
+}
+
 load_config() {
 	local cfg
 	cfg="$(find_config)" || {
@@ -258,14 +284,11 @@ load_config() {
 		value="${value#\"}"
 		value="${value%\'}"
 		value="${value#\'}"
-
-		if [[ "$value" == \$\{*\} || "$value" == \$* ]]; then
-			value="$(eval echo "$value")"
-		fi
+		value="$(expand_config_value "$value")"
 
 		case "$key" in
-		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS)
-			eval "$key=\"\$value\""
+		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | GRAFANA_ADMIN_PASSWORD)
+			printf -v "$key" '%s' "$value"
 			;;
 		esac
 	done <"$cfg"
@@ -411,7 +434,7 @@ install_base() {
 		if [[ -n "${HOMEOS_ADMIN_PASSWORD:-}" ]]; then
 			admin_pass="$HOMEOS_ADMIN_PASSWORD"
 		elif [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
-			admin_pass="$(openssl rand -base64 24 2>/dev/null || tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 24)"
+			admin_pass="$(generate_secret)"
 			log_to_file "GENERATED_PASSWORD"
 			mkdir -p "$INSTALL_STATE_DIR"
 			chmod 700 "$INSTALL_STATE_DIR"
@@ -451,7 +474,7 @@ install_base() {
 		pkg_service_enable unattended-upgrades
 		# Configure unattended-upgrades to auto-install security updates
 		if [[ -f /usr/bin/unattended-upgrade ]]; then
-			sed -i 's|//\s*"\${distro_id}:\${distro_codename}-security";|"${distro_id}:${distro_codename}-security";|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+			sed -i 's|//[[:space:]]*"\${distro_id}:\${distro_codename}-security";|"${distro_id}:${distro_codename}-security";|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
 		fi
 	fi
 
@@ -754,6 +777,20 @@ install_monitoring() {
 	local stack_dir="$HOMEOS_DATA_DIR/stacks/monitoring"
 	mkdir -p "$stack_dir"
 
+	local grafana_pass="$GRAFANA_ADMIN_PASSWORD"
+	if [[ -z "$grafana_pass" ]]; then
+		if [[ -f "$INSTALL_STATE_DIR/grafana-password.txt" && -s "$INSTALL_STATE_DIR/grafana-password.txt" ]]; then
+			grafana_pass="$(cat "$INSTALL_STATE_DIR/grafana-password.txt")"
+		else
+			grafana_pass="$(generate_secret)"
+			mkdir -p "$INSTALL_STATE_DIR"
+			chmod 700 "$INSTALL_STATE_DIR"
+			echo "$grafana_pass" >"$INSTALL_STATE_DIR/grafana-password.txt"
+			chmod 600 "$INSTALL_STATE_DIR/grafana-password.txt"
+			warn "Generated Grafana admin password. Retrieve with: sudo cat $INSTALL_STATE_DIR/grafana-password.txt"
+		fi
+	fi
+
 	cat >"$stack_dir/docker-compose.yml" <<EOF
 services:
   prometheus:
@@ -775,7 +812,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${HOMEOS_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${grafana_pass}
     volumes:
       - grafana-data:/var/lib/grafana
 volumes:
@@ -1001,7 +1038,12 @@ CRON
 uninstall_homeos() {
 	section "Uninstalling HomeOS"
 
-	read -r -p "Remove all HomeOS components? [y/N] " ans
+	local ans=""
+	if [[ "$YES_FLAG" == "yes" || "$HOMEOS_UNATTENDED" == "yes" ]]; then
+		ans="yes"
+	else
+		read -r -p "Remove all HomeOS components? [y/N] " ans
+	fi
 	[[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]] || die "Aborted."
 
 	if command -v docker &>/dev/null; then
@@ -1013,17 +1055,37 @@ uninstall_homeos() {
 		done
 	fi
 
-	read -r -p "Remove Docker volumes (data will be lost)? [y/N] " vol_ans
+	local vol_ans=""
+	if [[ "$YES_FLAG" == "yes" ]]; then
+		vol_ans="yes"
+	elif [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
+		vol_ans="no"
+	else
+		read -r -p "Remove Docker volumes (data will be lost)? [y/N] " vol_ans
+	fi
 	if [[ "${vol_ans,,}" == "y" || "${vol_ans,,}" == "yes" ]]; then
 		if command -v docker &>/dev/null; then
 			docker volume rm ha-config jellyfin-config jellyfin-cache vw-data prom-data grafana-data 2>/dev/null || true
 		fi
 	fi
 
+	if command -v systemctl &>/dev/null; then
+		systemctl disable --now cockpit.socket caddy casaos 2>/dev/null || true
+	fi
+
 	rm -rf "$HOMEOS_DATA_DIR"
 	rm -rf /etc/homeos
 	rm -f /etc/cron.daily/homeos-backup
 	rm -f /usr/local/bin/homeos
+	rm -f /etc/ssh/sshd_config.d/99-homeos.conf
+	rm -f "/etc/sudoers.d/${HOMEOS_ADMIN_USER}"
+	rm -f /etc/apt/sources.list.d/45drives.sources /usr/share/keyrings/45drives-archive-keyring.gpg
+	if [[ -f /etc/caddy/Caddyfile ]] && grep -Eq 'HomeOS Server|reverse_proxy localhost:81' /etc/caddy/Caddyfile; then
+		rm -f /etc/caddy/Caddyfile
+	fi
+	if [[ -f /etc/docker/daemon.json ]] && grep -q 'default-address-pools' /etc/docker/daemon.json && grep -q "$DOCKER_NETWORK_RANGE" /etc/docker/daemon.json; then
+		rm -f /etc/docker/daemon.json
+	fi
 	rm -rf "$INSTALL_STATE_DIR"
 
 	ok "HomeOS uninstalled. Docker, Node.js, and system packages were not removed."
@@ -1142,20 +1204,27 @@ show_config() {
 	fi
 }
 
-do_uninstall() {
-	sudo bash "$(which homeos-install.sh 2>/dev/null || echo /installer/install.sh)" uninstall 2>/dev/null || {
-		echo "Run: sudo bash /path/to/install.sh uninstall"
-		exit 1
-	}
-}
-
-do_update() {
-	echo "Pulling latest HomeOS installer..."
+download_installer() {
 	curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh || {
 		echo "Failed to download installer"
 		exit 1
 	}
-	sudo bash /tmp/homeos-install.sh --unattended
+}
+
+do_uninstall() {
+	echo "Pulling latest HomeOS installer..."
+	download_installer
+	sudo bash /tmp/homeos-install.sh uninstall
+}
+
+do_update() {
+	echo "Pulling latest HomeOS installer..."
+	download_installer
+	local args=(--unattended)
+	if [[ -f /etc/homeos/homeos.conf ]]; then
+		args+=(--config /etc/homeos/homeos.conf)
+	fi
+	sudo bash /tmp/homeos-install.sh "${args[@]}"
 }
 
 case "${1:-status}" in
@@ -1284,6 +1353,10 @@ parse_args() {
 			YES_FLAG="yes"
 			shift
 			;;
+		uninstall)
+			COMMAND="uninstall"
+			shift
+			;;
 		--version | -v)
 			echo "HomeOS Universal Installer v${HI_VERSION}"
 			exit 0
@@ -1347,6 +1420,11 @@ main() {
 
 	# Ensure state directory exists for tracking
 	mkdir -p "$INSTALL_STATE_DIR" 2>/dev/null || true
+
+	if [[ "$COMMAND" == "uninstall" ]]; then
+		uninstall_homeos
+		exit 0
+	fi
 
 	if [[ "$HOMEOS_MODE" == "minimal" ]]; then
 		INSTALL_CASAOS="no"
@@ -1420,16 +1498,5 @@ main() {
 		homeos doctor 2>/dev/null || warn "Some health checks failed. Review output above."
 	fi
 }
-
-if [[ "${1:-}" == "uninstall" ]]; then
-	parse_args "$@"
-	check_root
-	mkdir -p "$(dirname "$LOG_FILE")"
-	log "HomeOS Universal Installer v${HI_VERSION} — UNINSTALL"
-	detect_os
-	load_config
-	uninstall_homeos
-	exit 0
-fi
 
 main "$@"

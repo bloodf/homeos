@@ -75,8 +75,8 @@ TAILSCALE_AUTH_KEY=""
 # Vaultwarden admin token
 VAULTWARDEN_ADMIN_TOKEN=""
 
-# Home Assistant API token (optional)
-HOMEASSISTANT_API_TOKEN=""
+# Grafana admin password (optional - random password generated if empty)
+GRAFANA_ADMIN_PASSWORD=""
 
 # =============================================================================
 # STORAGE PATHS
@@ -123,6 +123,3 @@ TIMEZONE=""
 
 # GitHub tools to install (space-separated names, or "all")
 GITHUB_TOOLS="all"
-
-# Enable HomeOS CLI audit logging
-ENABLE_AUDIT="yes"
