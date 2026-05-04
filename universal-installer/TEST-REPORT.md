@@ -1,8 +1,8 @@
 # HomeOS Universal Installer — Test Report
 
-**Date:** 2026-05-03
+**Date:** 2026-05-04
 **Installer Version:** 1.0.0
-**Commit:** `595bc70`
+**Commit:** `03c93af`
 
 ---
 
@@ -12,7 +12,8 @@
 | -------------------- | ----------- | ------------------------------------ | ------- | ------- |
 | Debian 12 (bookworm) | minimal     | base, docker, node                   | ✅ PASS | ~2m     |
 | Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit   | ✅ PASS | ~3m 45s |
-| Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~3m     |
+| Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~2m 30s |
+| Debian 12 (bookworm) | regression  | post-bugfix validation               | ✅ PASS | ~3m 30s |
 | Fedora 40            | minimal     | base, docker, node                   | ✅ PASS | ~2m 15s |
 
 ---
@@ -59,7 +60,12 @@ Running the installer a second time on the same system:
 ✓ EXIT_CODE=0
 ```
 
-**Minor issue on second run:** 45Drives GPG key import shows warning in non-TTY environment (fixed with `--batch --yes`).
+**Verified on second run:**
+- No duplicate package installations
+- No duplicate API key exports (key_count=0)
+- Docker correctly reports "already installed"
+- All sections complete successfully
+- `homeos --version`, `homeos status`, `homeos doctor` all functional
 
 ## Fedora 40 Minimal Mode Results
 
@@ -127,6 +133,21 @@ Running the installer a second time on the same system:
 ### 10. Shellcheck Compliance
 
 **Fix:** Removed unused variables (`HI_LIB_DIR`, `HOMEASSISTANT_API_TOKEN`, `ENABLE_AUDIT`), fixed `=~` regex quoting.
+
+### 11. ufw Syntax Error
+
+**Problem:** `ufw --force allow 22/tcp` is invalid syntax — `--force` only works with `enable/disable/reset`, not `allow`.
+**Fix:** Removed `--force` from `ufw allow` commands; added `|| warn` for graceful failure in containers.
+
+### 12. Container Firewall Failures
+
+**Problem:** `ufw --force enable` crashes in unprivileged containers because iptables/netfilter isn't available.
+**Fix:** Made all ufw commands container-safe with `|| warn` fallbacks.
+
+### 13. RAM Check in Containers
+
+**Problem:** `free -m` returns 0MB in Docker containers because cgroup memory limits aren't visible.
+**Fix:** Added `/proc/meminfo` fallback and graceful skip for container environments.
 
 ---
 
