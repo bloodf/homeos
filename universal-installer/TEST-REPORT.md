@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-04
 **Installer Version:** 1.0.0
-**Commit:** `03c93af`
+**Commit:** `post-e8737fd`
 
 ---
 
@@ -14,6 +14,8 @@
 | Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit   | ✅ PASS | ~3m 45s |
 | Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~2m 30s |
 | Debian 12 (bookworm) | regression  | post-bugfix validation               | ✅ PASS | ~3m 30s |
+| Debian 12 (bookworm) | post-review | base, docker, node, CLI, idempotency | ✅ PASS | ~4m     |
+| Debian 12 (bookworm) | targeted    | config injection, uninstall, Grafana | ✅ PASS | <1m     |
 | Fedora 40            | minimal     | base, docker, node                   | ✅ PASS | ~2m 15s |
 
 ---
@@ -155,6 +157,11 @@ Running the installer a second time on the same system:
 **Problems found by GLM-5.1/MiniMax M2.7 review:** unsafe `eval` config expansion, `--yes uninstall` argument order bug, non-interactive uninstall prompts, incomplete HomeOS-owned cleanup, Grafana default password, unattended-upgrades sed mismatch, and secret-generation fallback SIGPIPE under `pipefail`.
 **Fix:** Replaced eval expansion with strict `$VAR`/`${VAR}` expansion, unified command parsing, made uninstall automation-safe, cleaned HomeOS-owned artifacts, generated a random Grafana password, fixed sed to `[[:space:]]*`, and hardened secret generation.
 
+### 15. homeos CLI Uptime Fallback
+
+**Problem:** Minimal Debian containers may not include `uptime`; `homeos status` printed `command not found` under `set -euo pipefail`.
+**Fix:** Added safe OS/uptime detection with `command -v uptime` and `unavailable` fallback.
+
 ---
 
 ## Known Limitations
@@ -208,6 +215,7 @@ bash /installer/install.sh --unattended --mode minimal
 | Debian 12 minimal     | ✅     |
 | Debian 12 full        | ✅     |
 | Debian 12 idempotent  | ✅     |
+| Debian post-review    | ✅     |
 | Fedora 40 minimal     | ✅     |
 | homeos CLI functional | ✅     |
 | Install log complete  | ✅     |

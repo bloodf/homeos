@@ -1111,9 +1111,16 @@ DATA_DIR="${HOMEOS_DATA_DIR:-/opt/homeos}"
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 
 show_status() {
+	local pretty="unknown" uptime_text="unavailable"
 	bold "== HomeOS Status =="
-	echo "OS: $(cat /etc/os-release | grep ^PRETTY_NAME= | cut -d= -f2 | tr -d '\"')"
-	echo "Uptime: $(uptime -p 2>/dev/null || uptime)"
+	pretty="$(grep -E '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2- | tr -d '\"' || true)"
+	[[ -n "$pretty" ]] || pretty="unknown"
+	if command -v uptime >/dev/null 2>&1; then
+		uptime_text="$(uptime -p 2>/dev/null || uptime 2>/dev/null || true)"
+		[[ -n "$uptime_text" ]] || uptime_text="unavailable"
+	fi
+	echo "OS: $pretty"
+	echo "Uptime: $uptime_text"
 	echo ""
 	bold "== Services =="
 	for svc in docker tailscaled cockpit.socket caddy casaos; do
