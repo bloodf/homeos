@@ -5,10 +5,12 @@ on:
     branches: ["main"]
     paths:
       - "universal-installer/**"
+      - "Makefile"
       - ".github/workflows/installer-ci.yml"
   pull_request:
     paths:
       - "universal-installer/**"
+      - "Makefile"
       - ".github/workflows/installer-ci.yml"
   workflow_dispatch:
 
@@ -28,11 +30,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends shellcheck
 
-      - name: Shellcheck installer
-        run: shellcheck --severity=warning universal-installer/install.sh
-
-      - name: Bash syntax
-        run: bash -n universal-installer/install.sh
+      - name: Static checks
+        run: make check
 
   smoke:
     name: Debian container smoke
@@ -43,68 +42,4 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Fast installer safety smoke
-        run: |
-          docker run --rm \
-            -v "$PWD/universal-installer/install.sh:/install.sh:ro" \
-            debian:bookworm \
-            bash -lc '
-              set -euo pipefail
-
-              cat >/tmp/inject.conf <<EOF
-          INSTALL_BASE="no"
-          INSTALL_DOCKER="no"
-          INSTALL_NODE="no"
-          INSTALL_TAILSCALE="no"
-          INSTALL_CADDY="no"
-          INSTALL_CASAOS="no"
-          INSTALL_COCKPIT="no"
-          INSTALL_HOMEASSISTANT="no"
-          INSTALL_JELLYFIN="no"
-          INSTALL_VAULTWARDEN="no"
-          INSTALL_FIREWALL="no"
-          INSTALL_SSH_HARDEN="no"
-          INSTALL_AI_CLIS="no"
-          INSTALL_GITHUB_TOOLS="no"
-          INSTALL_MONITORING="no"
-          INSTALL_BACKUPS="no"
-          ANTHROPIC_API_KEY="\$(echo PWNED >/tmp/pwned)"
-          EOF
-              bash /install.sh --config /tmp/inject.conf --dry-run --yes >/tmp/dryrun.out
-              test ! -e /tmp/pwned
-              echo CONFIG_INJECTION_OK
-
-              bash /install.sh --yes uninstall >/tmp/uninstall.out
-              ! grep -q "Starting installation" /tmp/uninstall.out
-              echo UNINSTALL_PARSE_OK
-
-              bash /install.sh uninstall --yes >/tmp/uninstall2.out
-              ! grep -q "Starting installation" /tmp/uninstall2.out
-              echo UNINSTALL_FIRST_ARG_OK
-
-              cat >/tmp/monitor.conf <<EOF
-          HOMEOS_MODE="full"
-          HOMEOS_UNATTENDED="yes"
-          INSTALL_BASE="no"
-          INSTALL_DOCKER="no"
-          INSTALL_NODE="no"
-          INSTALL_TAILSCALE="no"
-          INSTALL_CADDY="no"
-          INSTALL_CASAOS="no"
-          INSTALL_COCKPIT="no"
-          INSTALL_HOMEASSISTANT="no"
-          INSTALL_JELLYFIN="no"
-          INSTALL_VAULTWARDEN="no"
-          INSTALL_FIREWALL="no"
-          INSTALL_SSH_HARDEN="no"
-          INSTALL_AI_CLIS="no"
-          INSTALL_GITHUB_TOOLS="no"
-          INSTALL_MONITORING="yes"
-          INSTALL_BACKUPS="no"
-          EOF
-              bash /install.sh --config /tmp/monitor.conf --unattended --skip-checks >/tmp/monitor.out 2>&1
-              secret="$(cat /var/lib/homeos/grafana-password.txt)"
-              test -n "$secret"
-              test "$secret" != "admin"
-              grep -q "GF_SECURITY_ADMIN_PASSWORD=$secret" /opt/homeos/stacks/monitoring/docker-compose.yml
-              echo GRAFANA_PASSWORD_OK
-            '
+        run: make smoke

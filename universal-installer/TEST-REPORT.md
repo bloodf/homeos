@@ -8,16 +8,16 @@
 
 ## Test Matrix
 
-| OS                   | Mode        | Components                           | Result  | Time    |
-| -------------------- | ----------- | ------------------------------------ | ------- | ------- |
-| Debian 12 (bookworm) | minimal     | base, docker, node                   | ✅ PASS | ~2m     |
-| Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit   | ✅ PASS | ~3m 45s |
-| Debian 12 (bookworm) | idempotency | re-run full mode on installed system | ✅ PASS | ~2m 30s |
-| Debian 12 (bookworm) | regression  | post-bugfix validation               | ✅ PASS | ~3m 30s |
-| Debian 12 (bookworm) | post-review | base, docker, node, CLI, idempotency | ✅ PASS | ~4m     |
-| Debian 12 (bookworm) | targeted    | config injection, uninstall, Grafana | ✅ PASS | <1m     |
+| OS                   | Mode        | Components                             | Result  | Time    |
+| -------------------- | ----------- | -------------------------------------- | ------- | ------- |
+| Debian 12 (bookworm) | minimal     | base, docker, node                     | ✅ PASS | ~2m     |
+| Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit     | ✅ PASS | ~3m 45s |
+| Debian 12 (bookworm) | idempotency | re-run full mode on installed system   | ✅ PASS | ~2m 30s |
+| Debian 12 (bookworm) | regression  | post-bugfix validation                 | ✅ PASS | ~3m 30s |
+| Debian 12 (bookworm) | post-review | base, docker, node, CLI, idempotency   | ✅ PASS | ~4m     |
+| Debian 12 (bookworm) | targeted    | config injection, uninstall, Grafana   | ✅ PASS | <1m     |
 | Debian 12 (bookworm) | v1.1 smoke  | config-path, purge parse, Grafana bind | ✅ PASS | <1m     |
-| Fedora 40            | minimal     | base, docker, node                   | ✅ PASS | ~2m 15s |
+| Fedora 40            | minimal     | base, docker, node                     | ✅ PASS | ~2m 15s |
 
 ---
 

@@ -1,3 +1,0 @@
-{% for d in nas_disks %}
-SUBSYSTEM=="block", ENV{ID_FS_UUID}=="{{ d.uuid }}", SYMLINK+="disk/by-homeos/{{ d.label }}"
-{% endfor %}

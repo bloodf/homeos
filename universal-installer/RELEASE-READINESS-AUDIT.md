@@ -212,7 +212,7 @@
 #### MKT-001: README Completeness ✅
 
 - [x] Clear "What is HomeOS?" elevator pitch
-- [x] Feature comparison table (vs ISO approach)
+- [x] Script-only install positioning
 - [x] Hardware requirements (disk, RAM)
 - [x] Security considerations section
 - [x] Troubleshooting guide (known limitations documented)

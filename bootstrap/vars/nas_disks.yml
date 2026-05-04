@@ -1,5 +1,0 @@
----
-# USB-attached NAS drives. Populated post-install via:
-#   sudo homeos config nas add /dev/sdc1
-# Each entry: { uuid: "<blkid uuid>", label: "<short>", fstype: "ext4|exfat|ntfs" }
-nas_disks: []
