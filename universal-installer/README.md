@@ -109,6 +109,15 @@ BACKUP_TARGET=""
 
 See [`homeos.conf.example`](homeos.conf.example) for all options.
 
+Full documentation index: [`../docs/README.md`](../docs/README.md). Key guides:
+
+- [`../docs/INSTALLATION.md`](../docs/INSTALLATION.md)
+- [`../docs/CONFIGURATION.md`](../docs/CONFIGURATION.md)
+- [`../docs/OPERATIONS.md`](../docs/OPERATIONS.md)
+- [`../docs/SECURITY.md`](../docs/SECURITY.md)
+- [`../docs/DEVELOPMENT-PROCESS.md`](../docs/DEVELOPMENT-PROCESS.md)
+- [`../docs/RELEASE-PROCESS.md`](../docs/RELEASE-PROCESS.md)
+
 Environment expansion is intentionally strict: only exact `$VAR` and `${VAR}` values are expanded. Command substitution is never evaluated.
 
 ### AI skills and project library

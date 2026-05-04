@@ -110,6 +110,21 @@ BACKUP_TARGET=""
 
 Full template: [`universal-installer/homeos.conf.example`](universal-installer/homeos.conf.example).
 
+## Documentation
+
+Start with [`docs/README.md`](docs/README.md).
+
+| Guide | Purpose |
+| --- | --- |
+| [Installation](docs/INSTALLATION.md) | Supported systems, install modes, upgrades, uninstall. |
+| [Configuration](docs/CONFIGURATION.md) | Config keys, safety rules, AI skill/project settings. |
+| [Operations](docs/OPERATIONS.md) | Day-2 CLI, logs, backups, local domains, troubleshooting. |
+| [AI integrations](docs/AI-INTEGRATIONS.md) | AI tools, skills, projects, MCP inventory and isolation. |
+| [Security](docs/SECURITY.md) | Security defaults, secret handling, network/MCP isolation. |
+| [Architecture](docs/ARCHITECTURE.md) | Script structure, state layout, component boundaries. |
+| [Development process](docs/DEVELOPMENT-PROCESS.md) | Contributor workflow and change checklist. |
+| [Release process](docs/RELEASE-PROCESS.md) | Versioning, validation, tags, GitHub releases. |
+
 ### AI project isolation
 
 `INSTALL_AI_SKILLS=yes` uses `npx skills` records such as `source|agents|skills` so you can select many skills and choose target agents. Interactive installs use checklist help: highlight any component, skill package, or agent to see what it does and what to consider.
@@ -151,7 +166,16 @@ homeos/
 ├── .github/workflows/installer-ci.yml
 ├── Makefile
 ├── README.md
-├── docs/AI-INTEGRATIONS.md
+├── docs/
+│   ├── README.md
+│   ├── INSTALLATION.md
+│   ├── CONFIGURATION.md
+│   ├── OPERATIONS.md
+│   ├── AI-INTEGRATIONS.md
+│   ├── SECURITY.md
+│   ├── ARCHITECTURE.md
+│   ├── DEVELOPMENT-PROCESS.md
+│   └── RELEASE-PROCESS.md
 ├── release-notes/v1.0.0.md
 ├── release-notes/v1.1.0.md
 ├── release-notes/v1.2.0.md
