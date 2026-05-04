@@ -61,6 +61,7 @@ Running the installer a second time on the same system:
 ```
 
 **Verified on second run:**
+
 - No duplicate package installations
 - No duplicate API key exports (key_count=0)
 - Docker correctly reports "already installed"

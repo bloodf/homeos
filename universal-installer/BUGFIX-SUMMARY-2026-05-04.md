@@ -9,18 +9,21 @@
 ## Bugs Found and Fixed During This Session
 
 ### 1. ufw Syntax Error (CRITICAL)
+
 **File:** `install.sh` — `install_firewall()`
 **Problem:** `ufw --force allow 22/tcp` is invalid syntax. The `--force` flag only works with `ufw enable/disable/reset`, not with `allow` commands. This caused the installer to crash with "ERROR: Invalid syntax" when reaching the firewall section.
 **Fix:** Removed `--force` from all `ufw allow` commands. Added `|| warn` fallbacks to each ufw command for graceful container handling.
 **Test:** Regression test v5 confirmed fix — installer completes with `EXIT_CODE=0`.
 
 ### 2. Container Firewall Failures (CRITICAL)
+
 **File:** `install.sh` — `install_firewall()`
 **Problem:** `ufw --force enable` crashes in unprivileged Docker containers because iptables/netfilter requires `CAP_NET_ADMIN` which containers don't have by default. This caused exit code 1.
 **Fix:** Made all ufw commands container-safe with `|| warn` fallbacks. The firewall rules are still written, but enabling is gracefully skipped in containers with a descriptive warning.
 **Test:** Regression test v4 and v5 confirmed — installer completes successfully with warning: "ufw enable failed (may be container without iptables/netfilter)".
 
 ### 3. RAM Check in Containers (HIGH)
+
 **File:** `install.sh` — `preflight_checks()`
 **Problem:** `free -m` returns 0MB in Docker containers because cgroup memory limits aren't visible to `free`. This caused the pre-flight RAM check to fail with "Low RAM: 0MB" and abort the installer.
 **Fix:** Added `/proc/meminfo` fallback when `free` returns 0, and gracefully skip the RAM check in container environments rather than failing.
@@ -56,14 +59,14 @@
 
 ## Test Results
 
-| Test | Result | Exit Code |
-|------|--------|-----------|
-| Debian 12 minimal (first run) | ✅ PASS | 0 |
-| Debian 12 full (first run) | ✅ PASS | 0 |
-| Debian 12 idempotency (second run) | ✅ PASS | 0 |
-| Debian 12 regression (post-bugfix) | ✅ PASS | 0 |
-| Fedora 40 minimal | ✅ PASS | 0 |
-| Shellcheck `--severity=warning` | ✅ PASS | 0 warnings |
+| Test                               | Result  | Exit Code  |
+| ---------------------------------- | ------- | ---------- |
+| Debian 12 minimal (first run)      | ✅ PASS | 0          |
+| Debian 12 full (first run)         | ✅ PASS | 0          |
+| Debian 12 idempotency (second run) | ✅ PASS | 0          |
+| Debian 12 regression (post-bugfix) | ✅ PASS | 0          |
+| Fedora 40 minimal                  | ✅ PASS | 0          |
+| Shellcheck `--severity=warning`    | ✅ PASS | 0 warnings |
 
 ---
 
