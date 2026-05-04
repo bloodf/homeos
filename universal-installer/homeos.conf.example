@@ -29,8 +29,10 @@ INSTALL_NODE="yes"
 # Network & Access
 INSTALL_TAILSCALE="yes"
 INSTALL_CADDY="yes"
+INSTALL_LOCAL_DOMAINS="yes"
 
-# Web UIs & Management
+# App Platform & Web UIs
+INSTALL_COOLIFY="yes"
 INSTALL_CASAOS="yes"
 INSTALL_COCKPIT="yes"
 
@@ -45,6 +47,8 @@ INSTALL_SSH_HARDEN="yes"
 
 # AI / Dev Tools
 INSTALL_AI_CLIS="yes"
+INSTALL_PI="yes"
+INSTALL_AI_PROJECTS="yes"
 INSTALL_GITHUB_TOOLS="yes"
 
 # Monitoring & Backups
@@ -62,6 +66,11 @@ TAILNET_NAME=""
 # Caddy domain for reverse proxy
 # Leave empty for local-only access
 CADDY_DOMAIN=""
+
+# Local wildcard app/site domains. HomeOS runs dnsmasq and maps
+# *.homeos.home.arpa to this server; point your router/client DNS at HomeOS.
+LOCAL_DOMAIN_ROOT="homeos.home.arpa"
+LOCAL_DOMAIN_SERVER_IP=""  # auto-detect if empty
 
 # =============================================================================
 # CREDENTIALS & SECRETS
@@ -127,3 +136,14 @@ TIMEZONE=""
 
 # GitHub tools to install (space-separated names, or "all")
 GITHUB_TOOLS="all"
+
+# Pi packages to install with pi.dev coding agent. Defaults mirror the maintainer workstation.
+PI_PACKAGES="npm:context-mode npm:pi-subagents npm:pi-mcp-adapter npm:pi-lens npm:pi-gsd npm:pi-powerline-footer npm:pi-web-access npm:pi-interactive-shell npm:@a5c-ai/babysitter-pi npm:@plannotator/pi-extension npm:taskplane npm:pi-markdown-preview npm:@aliou/pi-processes npm:@callumvass/forgeflow-dev npm:@juicesharp/rpiv-todo npm:@juicesharp/rpiv-ask-user-question npm:@samfp/pi-memory npm:pi-mermaid"
+
+# AI project library. Projects are cloned into /opt/homeos/ai/projects, shared
+# skills/agents are exposed to selected tools, and MCP/plugin directories remain
+# isolated per tool so one tool never inherits another tool's MCP/plugin config.
+AI_PROJECTS="all"  # or: "oh-my-claudecode A11Y.md superpowers"
+AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"  # or "all"
+AI_PROJECT_TARGETS=""  # overrides, e.g. "A11Y.md:shared,claude,opencode superpowers:shared,pi"
+AI_PROJECT_INSTALL_MODE="clone"  # clone or manifest-only

@@ -43,15 +43,16 @@ curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-instal
 
 ## What it can install
 
-| Layer      | Component                                                                  |
-| ---------- | -------------------------------------------------------------------------- |
-| Base       | packages, admin user, sudoers, data directories, security updates          |
-| Runtime    | Docker CE, Docker Compose, Node.js, npm, pnpm, Bun                         |
-| Network    | Tailscale, Caddy, UFW/firewalld, SSH hardening                             |
-| Management | CasaOS, Cockpit + 45Drives modules                                         |
-| Apps       | Home Assistant, Jellyfin, Vaultwarden                                      |
-| Ops        | Prometheus, Grafana, Watchtower, restic backups                            |
-| Dev/AI     | Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode, GitHub tools |
+| Layer      | Component                                                                |
+| ---------- | ------------------------------------------------------------------------ |
+| Base       | packages, admin user, sudoers, data directories, security updates        |
+| Runtime    | Docker CE, Docker Compose, Node.js, npm, pnpm, Bun                       |
+| Network    | Tailscale, Caddy, local wildcard domains, UFW/firewalld, SSH hardening   |
+| Platform   | Coolify for hosting apps, databases, and websites                        |
+| Management | CasaOS, Cockpit + 45Drives modules                                       |
+| Apps       | Home Assistant, Jellyfin, Vaultwarden                                    |
+| Ops        | Prometheus, node-exporter, Grafana dashboard, Watchtower, restic backups |
+| Dev/AI     | Claude Code, Codex, Gemini CLI, Cursor, Kimi, Opencode, Pi + packages, isolated AI project library |
 
 All major components are controlled by `yes`/`no` flags in `homeos.conf`.
 
@@ -85,7 +86,16 @@ INSTALL_HOMEASSISTANT="yes"
 INSTALL_JELLYFIN="yes"
 INSTALL_VAULTWARDEN="yes"
 INSTALL_MONITORING="yes"
+INSTALL_COOLIFY="yes"
+INSTALL_LOCAL_DOMAINS="yes"
+INSTALL_PI="yes"
+INSTALL_AI_PROJECTS="yes"
 
+AI_PROJECTS="all"
+AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
+AI_PROJECT_TARGETS="" # optional: "A11Y.md:shared,claude,opencode"
+LOCAL_DOMAIN_ROOT="homeos.home.arpa"
+LOCAL_DOMAIN_SERVER_IP="" # auto-detect if empty
 TAILSCALE_AUTH_KEY="tskey-auth-..."
 VAULTWARDEN_ADMIN_TOKEN="..."
 GRAFANA_ADMIN_PASSWORD=""        # random if empty
@@ -98,6 +108,10 @@ BACKUP_TARGET=""
 
 Full template: [`universal-installer/homeos.conf.example`](universal-installer/homeos.conf.example).
 
+### AI project isolation
+
+`INSTALL_AI_PROJECTS=yes` clones the requested AI helper repositories into `/opt/homeos/ai/projects`. Shared skills and agents are exposed through `/opt/homeos/ai/shared`, while each target tool receives only its selected project links under its own HomeOS namespace (`~/.claude/homeos`, `~/.config/opencode/homeos`, `~/.pi/agent/homeos`, etc.). MCP servers and plugins stay in per-tool `homeos/mcp` and `homeos/plugins` directories; HomeOS does not rewrite global MCP config files.
+
 ## Management CLI
 
 After installation:
@@ -109,6 +123,8 @@ homeos logs <svc>      # container logs
 homeos restart <svc>   # restart stack/container
 homeos backup          # trigger backup
 homeos config          # print /etc/homeos/homeos.conf
+homeos domain add app 3000  # app.homeos.home.arpa -> localhost:3000
+homeos domain list     # list generated local routes
 homeos update          # download latest installer and re-run with original config path
 homeos uninstall       # uninstall HomeOS data/config
 homeos --version
@@ -130,6 +146,7 @@ homeos/
 ├── Makefile
 ├── README.md
 ├── release-notes/v1.0.0.md
+├── release-notes/v1.1.0.md
 └── universal-installer/
     ├── install.sh
     ├── smoke-test.sh

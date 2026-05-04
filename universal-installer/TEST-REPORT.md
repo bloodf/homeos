@@ -1,23 +1,24 @@
 # HomeOS Universal Installer — Test Report
 
 **Date:** 2026-05-04
-**Installer Version:** 1.0.0
-**Commit:** `post-e8737fd`
+**Installer Version:** 1.1.0
+**Commit:** `post-7eee606`
 
 ---
 
 ## Test Matrix
 
-| OS                   | Mode        | Components                             | Result  | Time    |
-| -------------------- | ----------- | -------------------------------------- | ------- | ------- |
-| Debian 12 (bookworm) | minimal     | base, docker, node                     | ✅ PASS | ~2m     |
-| Debian 12 (bookworm) | full        | base, docker, node, caddy, cockpit     | ✅ PASS | ~3m 45s |
-| Debian 12 (bookworm) | idempotency | re-run full mode on installed system   | ✅ PASS | ~2m 30s |
-| Debian 12 (bookworm) | regression  | post-bugfix validation                 | ✅ PASS | ~3m 30s |
-| Debian 12 (bookworm) | post-review | base, docker, node, CLI, idempotency   | ✅ PASS | ~4m     |
-| Debian 12 (bookworm) | targeted    | config injection, uninstall, Grafana   | ✅ PASS | <1m     |
-| Debian 12 (bookworm) | v1.1 smoke  | config-path, purge parse, Grafana bind | ✅ PASS | <1m     |
-| Fedora 40            | minimal     | base, docker, node                     | ✅ PASS | ~2m 15s |
+| OS                   | Mode         | Components                                      | Result  | Time    |
+| -------------------- | ------------ | ----------------------------------------------- | ------- | ------- |
+| Debian 12 (bookworm) | minimal      | base, docker, node                              | ✅ PASS | ~2m     |
+| Debian 12 (bookworm) | full         | base, docker, node, caddy, cockpit              | ✅ PASS | ~3m 45s |
+| Debian 12 (bookworm) | idempotency  | re-run full mode on installed system            | ✅ PASS | ~2m 30s |
+| Debian 12 (bookworm) | regression   | post-bugfix validation                          | ✅ PASS | ~3m 30s |
+| Debian 12 (bookworm) | post-review  | base, docker, node, CLI, idempotency            | ✅ PASS | ~4m     |
+| Debian 12 (bookworm) | targeted     | config injection, uninstall, Grafana            | ✅ PASS | <1m     |
+| Debian 12 (bookworm) | v1.1 smoke   | config-path, purge parse, Grafana bind          | ✅ PASS | <1m     |
+| Debian 12 (bookworm) | v1.1.0 smoke | local domains, Grafana dashboard, AI projects, parser safety | ✅ PASS | <2m     |
+| Fedora 40            | minimal      | base, docker, node                              | ✅ PASS | ~2m 15s |
 
 ---
 
@@ -167,6 +168,10 @@ Running the installer a second time on the same system:
 
 **Fixes:** Custom `--config` paths are recorded under `/var/lib/homeos/config-path` so `homeos update` can re-use them; `uninstall --purge --yes` can remove HomeOS-installed packages/repos; Grafana now binds to `127.0.0.1:3000` by default and can be changed with `GRAFANA_BIND_ADDRESS`.
 
+### 17. v1.1.0 App Platform and Observability
+
+**Fixes:** Added local wildcard domains with dnsmasq + Caddy route management, Coolify installer integration, Pi coding agent plus the maintainer's installed Pi package set, isolated AI project library installation/targeting, and a provisioned Grafana dashboard backed by node-exporter metrics.
+
 ---
 
 ## Known Limitations
@@ -222,6 +227,7 @@ bash /installer/install.sh --unattended --mode minimal
 | Debian 12 idempotent  | ✅     |
 | Debian post-review    | ✅     |
 | v1.1 smoke checks     | ✅     |
+| v1.1.0 feature smoke  | ✅     |
 | Fedora 40 minimal     | ✅     |
 | homeos CLI functional | ✅     |
 | Install log complete  | ✅     |

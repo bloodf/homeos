@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HomeOS Universal Installer v1.0.0
+# HomeOS Universal Installer v1.1.0
 # Works on Debian 12+/Ubuntu 22.04+ and Fedora 38+/RHEL 9+
 #
 # Usage:
@@ -22,7 +22,7 @@ IFS=$'\n\t'
 # ------------------------------------------------------------------------------
 # SCRIPT METADATA
 # ------------------------------------------------------------------------------
-HI_VERSION="1.0.0"
+HI_VERSION="1.1.0"
 HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_STATE_DIR="/var/lib/homeos"
 DRY_RUN="no"
@@ -46,6 +46,8 @@ INSTALL_DOCKER="yes"
 INSTALL_NODE="yes"
 INSTALL_TAILSCALE="yes"
 INSTALL_CADDY="yes"
+INSTALL_LOCAL_DOMAINS="yes"
+INSTALL_COOLIFY="yes"
 INSTALL_CASAOS="yes"
 INSTALL_COCKPIT="yes"
 INSTALL_HOMEASSISTANT="yes"
@@ -54,12 +56,16 @@ INSTALL_VAULTWARDEN="yes"
 INSTALL_FIREWALL="yes"
 INSTALL_SSH_HARDEN="yes"
 INSTALL_AI_CLIS="yes"
+INSTALL_PI="yes"
+INSTALL_AI_PROJECTS="yes"
 INSTALL_GITHUB_TOOLS="yes"
 INSTALL_MONITORING="yes"
 INSTALL_BACKUPS="yes"
 
 TAILNET_NAME=""
 CADDY_DOMAIN=""
+LOCAL_DOMAIN_ROOT="homeos.home.arpa"
+LOCAL_DOMAIN_SERVER_IP=""
 TAILSCALE_AUTH_KEY=""
 VAULTWARDEN_ADMIN_TOKEN=""
 BACKUP_TARGET=""
@@ -71,6 +77,11 @@ EXTRA_UDP_PORTS=""
 DOCKER_NETWORK_RANGE="172.30.0.0/16"
 TIMEZONE=""
 GITHUB_TOOLS="all"
+PI_PACKAGES="npm:context-mode npm:pi-subagents npm:pi-mcp-adapter npm:pi-lens npm:pi-gsd npm:pi-powerline-footer npm:pi-web-access npm:pi-interactive-shell npm:@a5c-ai/babysitter-pi npm:@plannotator/pi-extension npm:taskplane npm:pi-markdown-preview npm:@aliou/pi-processes npm:@callumvass/forgeflow-dev npm:@juicesharp/rpiv-todo npm:@juicesharp/rpiv-ask-user-question npm:@samfp/pi-memory npm:pi-mermaid"
+AI_PROJECTS="all"
+AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
+AI_PROJECT_TARGETS=""
+AI_PROJECT_INSTALL_MODE="clone"
 GRAFANA_ADMIN_PASSWORD=""
 GRAFANA_BIND_ADDRESS="127.0.0.1"
 
@@ -290,7 +301,7 @@ load_config() {
 		value="$(expand_config_value "$value")"
 
 		case "$key" in
-		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | GRAFANA_ADMIN_PASSWORD | GRAFANA_BIND_ADDRESS)
+		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_LOCAL_DOMAINS | INSTALL_COOLIFY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_PI | INSTALL_AI_PROJECTS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | LOCAL_DOMAIN_ROOT | LOCAL_DOMAIN_SERVER_IP | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | PI_PACKAGES | AI_PROJECTS | AI_PROJECT_TOOLS | AI_PROJECT_TARGETS | AI_PROJECT_INSTALL_MODE | GRAFANA_ADMIN_PASSWORD | GRAFANA_BIND_ADDRESS)
 			printf -v "$key" '%s' "$value"
 			;;
 		esac
@@ -320,6 +331,8 @@ confirm_install() {
 	[[ "$INSTALL_NODE" == "yes" ]] && comps+=("Node.js 24 + Bun")
 	[[ "$INSTALL_TAILSCALE" == "yes" ]] && comps+=("Tailscale")
 	[[ "$INSTALL_CADDY" == "yes" ]] && comps+=("Caddy reverse proxy")
+	[[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]] && comps+=("Local custom domains")
+	[[ "$INSTALL_COOLIFY" == "yes" ]] && comps+=("Coolify app platform")
 	[[ "$INSTALL_CASAOS" == "yes" ]] && comps+=("CasaOS")
 	[[ "$INSTALL_COCKPIT" == "yes" ]] && comps+=("Cockpit + file-sharing")
 	[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && comps+=("Home Assistant")
@@ -328,6 +341,8 @@ confirm_install() {
 	[[ "$INSTALL_FIREWALL" == "yes" ]] && comps+=("Firewall (UFW/firewalld)")
 	[[ "$INSTALL_SSH_HARDEN" == "yes" ]] && comps+=("SSH hardening")
 	[[ "$INSTALL_AI_CLIS" == "yes" ]] && comps+=("AI CLIs (claude, codex, gemini, etc.)")
+	[[ "$INSTALL_PI" == "yes" ]] && comps+=("Pi coding agent + packages")
+	[[ "$INSTALL_AI_PROJECTS" == "yes" ]] && comps+=("Shared/isolated AI project library")
 	[[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && comps+=("GitHub dev tools")
 	[[ "$INSTALL_MONITORING" == "yes" ]] && comps+=("Monitoring (Prometheus/Grafana)")
 	[[ "$INSTALL_BACKUPS" == "yes" ]] && comps+=("Backups (restic)")
@@ -418,6 +433,25 @@ pkg_service_enable() {
 	else
 		systemctl enable "$svc" 2>/dev/null || true
 	fi
+}
+
+get_primary_ip() {
+	local ip=""
+	ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+	if [[ -z "$ip" ]] && command -v ip >/dev/null 2>&1; then
+		ip="$(ip -4 route get 1 2>/dev/null | awk '{print $7; exit}' || true)"
+	fi
+	printf '%s\n' "${ip:-127.0.0.1}"
+}
+
+sanitize_domain_label() {
+	local label="$1"
+	label="${label,,}"
+	label="${label//[^a-z0-9-]/-}"
+	label="${label#-}"
+	label="${label%-}"
+	[[ -n "$label" ]] || return 1
+	printf '%s\n' "$label"
 }
 
 # ------------------------------------------------------------------------------
@@ -617,6 +651,33 @@ install_tailscale() {
 }
 
 # ------------------------------------------------------------------------------
+# SECTION: LOCAL DOMAINS
+# ------------------------------------------------------------------------------
+install_local_domains() {
+	[[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]] || return 0
+	section "Local Custom Domains"
+
+	local server_ip="$LOCAL_DOMAIN_SERVER_IP"
+	[[ -n "$server_ip" ]] || server_ip="$(get_primary_ip)"
+	mkdir -p /etc/homeos /etc/caddy/conf.d /etc/dnsmasq.d
+	printf '%s\n' "$LOCAL_DOMAIN_ROOT" >/etc/homeos/local-domain-root
+	printf '%s\n' "$server_ip" >/etc/homeos/local-domain-ip
+
+	cat >/etc/dnsmasq.d/homeos-local-domains.conf <<EOF
+# HomeOS local wildcard DNS
+# Point your router/LAN clients at this server for DNS, or add this server as a conditional DNS resolver.
+address=/.${LOCAL_DOMAIN_ROOT}/${server_ip}
+EOF
+
+	if ! command -v dnsmasq >/dev/null 2>&1; then
+		pkg_update
+		pkg_install dnsmasq
+	fi
+	pkg_service_enable dnsmasq
+	ok "Local wildcard DNS: *.${LOCAL_DOMAIN_ROOT} -> ${server_ip}"
+}
+
+# ------------------------------------------------------------------------------
 # SECTION: CADDY
 # ------------------------------------------------------------------------------
 install_caddy() {
@@ -637,7 +698,7 @@ install_caddy() {
 		fi
 	fi
 
-	mkdir -p /etc/caddy
+	mkdir -p /etc/caddy/conf.d
 	cat >/etc/caddy/Caddyfile <<EOF
 {
   auto_https off
@@ -646,6 +707,8 @@ install_caddy() {
 :80 {
   respond "HomeOS Server"
 }
+
+import /etc/caddy/conf.d/*.caddy
 EOF
 
 	if [[ -n "$CADDY_DOMAIN" ]]; then
@@ -655,6 +718,16 @@ EOF
 }
 
 $CADDY_DOMAIN {
+  reverse_proxy localhost:81
+}
+
+import /etc/caddy/conf.d/*.caddy
+EOF
+	fi
+
+	if [[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]]; then
+		cat >"/etc/caddy/conf.d/homeos.${LOCAL_DOMAIN_ROOT}.caddy" <<EOF
+homeos.${LOCAL_DOMAIN_ROOT} {
   reverse_proxy localhost:81
 }
 EOF
@@ -799,12 +872,39 @@ install_casaos() {
 	ok "CasaOS on :81"
 }
 
+install_coolify() {
+	[[ "$INSTALL_COOLIFY" == "yes" ]] || return 0
+	section "Coolify"
+
+	if [[ -d /data/coolify/source || -d /data/coolify ]]; then
+		ok "Coolify already appears installed"
+	else
+		warn "Installing Coolify via official script..."
+		curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash || warn "Coolify install failed (non-fatal)"
+	fi
+
+	if [[ "$INSTALL_LOCAL_DOMAINS" == "yes" && "$INSTALL_CADDY" == "yes" ]]; then
+		mkdir -p /etc/caddy/conf.d
+		cat >"/etc/caddy/conf.d/coolify.${LOCAL_DOMAIN_ROOT}.caddy" <<EOF
+coolify.${LOCAL_DOMAIN_ROOT} {
+  reverse_proxy localhost:8000
+}
+EOF
+		if command -v caddy >/dev/null 2>&1; then
+			caddy fmt --overwrite "/etc/caddy/conf.d/coolify.${LOCAL_DOMAIN_ROOT}.caddy" >/dev/null 2>&1 || true
+			caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+		fi
+	fi
+
+	ok "Coolify available on :8000 (and coolify.${LOCAL_DOMAIN_ROOT} when local domains are enabled)"
+}
+
 install_monitoring() {
 	[[ "$INSTALL_MONITORING" == "yes" ]] || return 0
 	section "Monitoring (Prometheus/Grafana)"
 
 	local stack_dir="$HOMEOS_DATA_DIR/stacks/monitoring"
-	mkdir -p "$stack_dir"
+	mkdir -p "$stack_dir/provisioning/datasources" "$stack_dir/provisioning/dashboards" "$stack_dir/dashboards"
 
 	local grafana_pass="$GRAFANA_ADMIN_PASSWORD" grafana_port="3000:3000"
 	if [[ -z "$grafana_pass" ]]; then
@@ -838,6 +938,15 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - /:/host:ro,rslave
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -848,6 +957,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${grafana_pass}
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
 volumes:
   prom-data:
   grafana-data:
@@ -863,7 +974,93 @@ scrape_configs:
       - targets: ['localhost:9090']
   - job_name: 'node'
     static_configs:
-      - targets: ['host.docker.internal:9100']
+      - targets: ['node-exporter:9100']
+EOF
+
+	cat >"$stack_dir/provisioning/datasources/prometheus.yml" <<EOF
+apiVersion: 1
+datasources:
+  - name: HomeOS Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+EOF
+
+	cat >"$stack_dir/provisioning/dashboards/homeos.yml" <<EOF
+apiVersion: 1
+providers:
+  - name: HomeOS
+    orgId: 1
+    folder: HomeOS
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+EOF
+
+	cat >"$stack_dir/dashboards/homeos-server.json" <<'EOF'
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": "HomeOS Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{ "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU" }],
+      "title": "CPU Usage",
+      "type": "gauge"
+    },
+    {
+      "datasource": "HomeOS Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{ "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "legendFormat": "RAM" }],
+      "title": "Memory Usage",
+      "type": "gauge"
+    },
+    {
+      "datasource": "HomeOS Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "targets": [{ "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} * 100) / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"})", "legendFormat": "Root disk" }],
+      "title": "Disk Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "HomeOS Prometheus",
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "targets": [
+        { "expr": "sum(rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\"}[5m]))", "legendFormat": "RX" },
+        { "expr": "sum(rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\"}[5m]))", "legendFormat": "TX" }
+      ],
+      "title": "Network Throughput",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["homeos"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "HomeOS Server Overview",
+  "uid": "homeos-server-overview",
+  "version": 1,
+  "weekStart": ""
+}
 EOF
 
 	(cd "$stack_dir" && docker compose up -d) 2>/dev/null || warn "Monitoring stack start failed (docker daemon may not be running)"
@@ -917,6 +1114,270 @@ install_ai_clis() {
 	ok "AI CLIs installed"
 }
 
+install_pi() {
+	[[ "$INSTALL_PI" == "yes" ]] || return 0
+	section "Pi Coding Agent"
+
+	if ! command -v npm >/dev/null 2>&1; then
+		warn "npm not available; skipping Pi install"
+		return 0
+	fi
+
+	if ! command -v pi >/dev/null 2>&1; then
+		npm install -g @mariozechner/pi-coding-agent 2>/dev/null || warn "pi install failed"
+	fi
+
+	if command -v pi >/dev/null 2>&1; then
+		local pkg
+		while IFS= read -r pkg; do
+			su - "$HOMEOS_ADMIN_USER" -c "pi install '$pkg'" >/dev/null 2>&1 || warn "Pi package install failed: $pkg"
+		done < <(emit_words "$PI_PACKAGES")
+		ok "Pi installed with configured packages"
+	else
+		warn "Pi command not available after install"
+	fi
+}
+
+sanitize_ai_name() {
+	local name="$1"
+	name="${name##*/}"
+	name="${name%.git}"
+	name="${name//[^A-Za-z0-9._-]/-}"
+	[[ -n "$name" ]] || return 1
+	printf '%s\n' "$name"
+}
+
+emit_tokens() {
+	printf '%s\n' "$1" | tr ', ' '\n\n' | sed '/^$/d'
+}
+
+emit_words() {
+	printf '%s\n' "$1" | tr ' 	' '\n\n' | sed '/^$/d'
+}
+
+list_has_token() {
+	local list="$1" needle="$2" token
+	while IFS= read -r token; do
+		[[ "$token" == "$needle" ]] && return 0
+	done < <(emit_tokens "$list")
+	return 1
+}
+
+ai_project_enabled() {
+	local project="$1"
+	[[ "$AI_PROJECTS" == "all" ]] && return 0
+	list_has_token "$AI_PROJECTS" "$project"
+}
+
+ai_project_targets() {
+	local project="$1" defaults="$2" override="" entry
+	while IFS= read -r entry; do
+		[[ "$entry" == *:* ]] || continue
+		if [[ "${entry%%:*}" == "$project" ]]; then
+			override="${entry#*:}"
+			break
+		fi
+	done < <(emit_words "$AI_PROJECT_TARGETS")
+	printf '%s\n' "${override:-$defaults}"
+}
+
+ai_target_allowed() {
+	local target="$1"
+	[[ "$target" == "shared" ]] && return 0
+	[[ "$AI_PROJECT_TOOLS" == "all" ]] && return 0
+	list_has_token "$AI_PROJECT_TOOLS" "$target"
+}
+
+ai_tool_root() {
+	case "$1" in
+	claude) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.claude" ;;
+	opencode) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.config/opencode" ;;
+	openagent) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.config/openagent" ;;
+	pi) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.pi/agent" ;;
+	codex) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.codex" ;;
+	cursor) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.cursor" ;;
+	gemini) printf '%s\n' "${HOMEOS_ADMIN_HOME}/.gemini" ;;
+	*) return 1 ;;
+	esac
+}
+
+link_tree_children() {
+	local source_dir="$1" dest_dir="$2" prefix="$3" item base
+	[[ -d "$source_dir" ]] || return 0
+	mkdir -p "$dest_dir"
+	shopt -s nullglob dotglob
+	for item in "$source_dir"/*; do
+		base="$(basename "$item")"
+		[[ "$base" == "." || "$base" == ".." ]] && continue
+		ln -sfn "$item" "${dest_dir}/${prefix}-${base}"
+	done
+	shopt -u nullglob dotglob
+}
+
+sync_ai_project_shared_content() {
+	local project_dir="$1" project="$2" shared_root="$3"
+	local skills_dir="${shared_root}/skills" agents_dir="${shared_root}/agents"
+	mkdir -p "$skills_dir" "$agents_dir"
+
+	if [[ -f "${project_dir}/SKILL.md" ]]; then
+		ln -sfn "$project_dir" "${skills_dir}/${project}"
+	fi
+	link_tree_children "${project_dir}/skills" "$skills_dir" "$project"
+	link_tree_children "${project_dir}/.claude/skills" "$skills_dir" "$project"
+	link_tree_children "${project_dir}/agents" "$agents_dir" "$project"
+	link_tree_children "${project_dir}/.claude/agents" "$agents_dir" "$project"
+	link_tree_children "${project_dir}/.agents" "$agents_dir" "$project"
+}
+
+install_ai_tool_links() {
+	local tool="$1" project="$2" project_dir="$3" shared_root="$4" root
+	root="$(ai_tool_root "$tool")" || {
+		warn "Unknown AI tool target '$tool' for $project"
+		return 0
+	}
+
+	mkdir -p "$root/homeos/projects" "$root/homeos/mcp/${project}" "$root/homeos/plugins/${project}" "$root/skills" "$root/agents"
+	ln -sfn "$project_dir" "$root/homeos/projects/$project"
+	ln -sfn "${shared_root}/skills" "$root/homeos/skills"
+	ln -sfn "${shared_root}/agents" "$root/homeos/agents"
+	ln -sfn "${shared_root}/skills" "$root/skills/homeos-shared"
+	ln -sfn "${shared_root}/agents" "$root/agents/homeos-shared"
+	cat >"$root/homeos/README.md" <<EOF
+# HomeOS AI tool integration: ${tool}
+
+Projects linked here are selected for ${tool}. Shared skills and agents are symlinked from ${shared_root}.
+
+MCP servers and plugins are intentionally contained under this tool's own homeos/mcp and homeos/plugins directories. HomeOS does not edit global MCP server configuration files, so existing MCP behavior is preserved.
+EOF
+}
+
+materialize_ai_project() {
+	local project="$1" repo="$2" project_dir="$3"
+	mkdir -p "$(dirname "$project_dir")"
+	if [[ "$AI_PROJECT_INSTALL_MODE" == "manifest-only" ]]; then
+		mkdir -p "$project_dir"
+		printf '%s\n' "$repo" >"$project_dir/REPOSITORY_URL"
+		return 0
+	fi
+
+	if [[ -d "$project_dir/.git" ]]; then
+		git -C "$project_dir" pull --ff-only --quiet || warn "AI project update failed: $project"
+	elif [[ -e "$project_dir" ]]; then
+		warn "AI project path exists and is not a git repo: $project_dir"
+	else
+		git clone --quiet --depth 1 "$repo" "$project_dir" || {
+			warn "AI project clone failed: $project"
+			mkdir -p "$project_dir"
+			printf '%s\n' "$repo" >"$project_dir/REPOSITORY_URL"
+		}
+	fi
+}
+
+install_ai_projects() {
+	[[ "$INSTALL_AI_PROJECTS" == "yes" ]] || return 0
+	section "AI Project Library"
+
+	if [[ "$AI_PROJECT_INSTALL_MODE" != "clone" && "$AI_PROJECT_INSTALL_MODE" != "manifest-only" ]]; then
+		warn "Unknown AI_PROJECT_INSTALL_MODE=$AI_PROJECT_INSTALL_MODE; using clone"
+		AI_PROJECT_INSTALL_MODE="clone"
+	fi
+
+	local ai_root="${HOMEOS_DATA_DIR}/ai"
+	local projects_root="${ai_root}/projects" shared_root="${ai_root}/shared"
+	mkdir -p "$projects_root" "${shared_root}/skills" "${shared_root}/agents"
+
+	local -a project_names=(
+		oh-my-claudecode claude-mem A11Y.md code-review-graph hindsight taste-skill portless skills
+		cinsights claude-context ClawTeam heretic OpenViking impeccable agency-agents oh-my-openagent
+		shannon hive superpowers AgentTower
+	)
+	declare -A project_urls=(
+		["oh-my-claudecode"]="https://github.com/yeachan-heo/oh-my-claudecode.git"
+		["claude-mem"]="https://github.com/thedotmack/claude-mem.git"
+		["A11Y.md"]="https://github.com/fecarrico/A11Y.md.git"
+		["code-review-graph"]="https://github.com/tirth8205/code-review-graph.git"
+		["hindsight"]="https://github.com/vectorize-io/hindsight.git"
+		["taste-skill"]="https://github.com/Leonxlnx/taste-skill.git"
+		["portless"]="https://github.com/vercel-labs/portless.git"
+		["skills"]="https://github.com/mattpocock/skills.git"
+		["cinsights"]="https://github.com/deepankarm/cinsights.git"
+		["claude-context"]="https://github.com/zilliztech/claude-context.git"
+		["ClawTeam"]="https://github.com/HKUDS/ClawTeam.git"
+		["heretic"]="https://github.com/p-e-w/heretic.git"
+		["OpenViking"]="https://github.com/volcengine/OpenViking.git"
+		["impeccable"]="https://github.com/pbakaus/impeccable.git"
+		["agency-agents"]="https://github.com/msitarzewski/agency-agents.git"
+		["oh-my-openagent"]="https://github.com/code-yeongyu/oh-my-openagent.git"
+		["shannon"]="https://github.com/KeygraphHQ/shannon.git"
+		["hive"]="https://github.com/aden-hive/hive.git"
+		["superpowers"]="https://github.com/obra/superpowers.git"
+		["AgentTower"]="https://github.com/opensoft/AgentTower.git"
+	)
+	declare -A project_defaults=(
+		["oh-my-claudecode"]="claude,shared"
+		["claude-mem"]="claude,shared"
+		["A11Y.md"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["code-review-graph"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["hindsight"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["taste-skill"]="shared,claude,opencode,pi,codex,cursor"
+		["portless"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["skills"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["cinsights"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["claude-context"]="claude,shared"
+		["ClawTeam"]="claude,shared"
+		["heretic"]="shared,claude,opencode,pi,codex,cursor"
+		["OpenViking"]="shared,opencode,openagent,claude"
+		["impeccable"]="shared,claude,opencode,cursor"
+		["agency-agents"]="shared,claude,opencode,pi"
+		["oh-my-openagent"]="openagent,shared"
+		["shannon"]="shared,claude,opencode,pi,codex"
+		["hive"]="shared,claude,opencode,pi,codex,cursor"
+		["superpowers"]="shared,claude,opencode,pi,codex,cursor,gemini"
+		["AgentTower"]="shared,opencode,openagent,claude"
+	)
+
+	local project repo safe_name project_dir targets target linked_count=0
+	printf '# project\trepo\ttargets\n' >"${ai_root}/manifest.tsv"
+	for project in "${project_names[@]}"; do
+		ai_project_enabled "$project" || continue
+		repo="${project_urls[$project]}"
+		safe_name="$(sanitize_ai_name "$project")"
+		project_dir="${projects_root}/${safe_name}"
+		targets="$(ai_project_targets "$project" "${project_defaults[$project]}")"
+
+		materialize_ai_project "$project" "$repo" "$project_dir"
+		sync_ai_project_shared_content "$project_dir" "$safe_name" "$shared_root"
+		printf '%s\t%s\t%s\n' "$project" "$repo" "$targets" >>"${ai_root}/manifest.tsv"
+
+		while IFS= read -r target; do
+			ai_target_allowed "$target" || continue
+			[[ "$target" == "shared" ]] && continue
+			install_ai_tool_links "$target" "$safe_name" "$project_dir" "$shared_root"
+		done < <(emit_tokens "$targets")
+		linked_count=$((linked_count + 1))
+	done
+
+	cat >"${ai_root}/README.md" <<EOF
+# HomeOS AI project library
+
+Projects live under: ${projects_root}
+Shared skills live under: ${shared_root}/skills
+Shared agents live under: ${shared_root}/agents
+
+Per-tool integrations are isolated in each tool's own HomeOS namespace. Shared skills/agents are symlinked; MCP servers and plugins are not copied across tools. HomeOS does not edit global MCP server configuration files and does not rewrite MCP server config files.
+
+Customize with:
+- AI_PROJECTS="all" or a space/comma-separated project list
+- AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini" or "all"
+- AI_PROJECT_TARGETS="project:tool1,tool2 other-project:shared,claude"
+- AI_PROJECT_INSTALL_MODE="clone" or "manifest-only"
+EOF
+	if id -u "$HOMEOS_ADMIN_USER" >/dev/null 2>&1; then
+		chown -R "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" "$ai_root" "$HOMEOS_ADMIN_HOME/.claude" "$HOMEOS_ADMIN_HOME/.config" "$HOMEOS_ADMIN_HOME/.pi" "$HOMEOS_ADMIN_HOME/.codex" "$HOMEOS_ADMIN_HOME/.cursor" "$HOMEOS_ADMIN_HOME/.gemini" 2>/dev/null || true
+	fi
+	ok "AI project library ready (${linked_count} projects): ${ai_root}"
+}
+
 # ------------------------------------------------------------------------------
 # SECTION: GITHUB TOOLS
 # ------------------------------------------------------------------------------
@@ -967,8 +1428,8 @@ install_firewall() {
 	[[ "$INSTALL_FIREWALL" == "yes" ]] || return 0
 	section "Firewall"
 
-	local tcp_ports=(22 80 443 445 139 2049 8123 8096 9090 81 8222 3000 9091)
-	local udp_ports=(137 138 2049 5353 1900 7359)
+	local tcp_ports=(22 53 80 443 445 139 2049 8000 8123 8096 9090 81 8222 3000 9091)
+	local udp_ports=(53 137 138 2049 5353 1900 7359)
 
 	for p in $EXTRA_TCP_PORTS; do tcp_ports+=("$p"); done
 	for p in $EXTRA_UDP_PORTS; do udp_ports+=("$p"); done
@@ -1102,7 +1563,7 @@ purge_homeos_packages() {
 			/usr/share/keyrings/45drives-archive-keyring.gpg
 		pkg_remove_if_installed \
 			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
-			nodejs tailscale tailscale-archive-keyring caddy casaos \
+			nodejs tailscale tailscale-archive-keyring caddy casaos dnsmasq \
 			cockpit cockpit-ws cockpit-system cockpit-bridge cockpit-storaged cockpit-packagekit \
 			restic prometheus-node-exporter
 	else
@@ -1112,7 +1573,7 @@ purge_homeos_packages() {
 			/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:group_caddy:caddy.repo
 		pkg_remove_if_installed \
 			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
-			nodejs npm tailscale caddy casaos cockpit cockpit-ws cockpit-system restic
+			nodejs npm tailscale caddy casaos dnsmasq cockpit cockpit-ws cockpit-system restic
 	fi
 }
 
@@ -1157,6 +1618,8 @@ uninstall_homeos() {
 	rm -rf "$HOMEOS_DATA_DIR"
 	rm -rf /etc/homeos
 	rm -f /etc/cron.daily/homeos-backup
+	rm -f /etc/dnsmasq.d/homeos-local-domains.conf
+	rm -f /etc/caddy/conf.d/*.homeos.home.arpa.caddy /etc/caddy/conf.d/homeos.*.caddy /etc/caddy/conf.d/coolify.*.caddy 2>/dev/null || true
 	rm -f /usr/local/bin/homeos
 	rm -f /etc/ssh/sshd_config.d/99-homeos.conf
 	rm -f "/etc/sudoers.d/${HOMEOS_ADMIN_USER}"
@@ -1188,7 +1651,7 @@ install_homeos_cli() {
 
 	cat >/usr/local/bin/homeos <<'CLIEOF'
 #!/usr/bin/env bash
-# HomeOS day-2 CLI v1.0.0
+# HomeOS day-2 CLI v1.1.0
 set -euo pipefail
 
 ADMIN_USER="${HOMEOS_ADMIN_USER:-admin}"
@@ -1298,6 +1761,50 @@ show_config() {
 	fi
 }
 
+local_domain_root() { cat /etc/homeos/local-domain-root 2>/dev/null || printf 'homeos.home.arpa\n'; }
+
+sanitize_domain_label() {
+	local label="$1"
+	label="${label,,}"
+	label="${label//[^a-z0-9-]/-}"
+	label="${label#-}"
+	label="${label%-}"
+	[[ -n "$label" ]] || return 1
+	printf '%s\n' "$label"
+}
+
+do_domain() {
+	local action="${1:-list}" root name port upstream file
+	root="$(local_domain_root)"
+	case "$action" in
+	add)
+		name="$(sanitize_domain_label "${2:-}")" || { echo "Usage: homeos domain add <name> <port> [upstream-host]"; exit 1; }
+		port="${3:-}"; upstream="${4:-localhost}"
+		[[ "$port" =~ ^[0-9]+$ ]] || { echo "Port must be numeric"; exit 1; }
+		mkdir -p /etc/caddy/conf.d
+		file="/etc/caddy/conf.d/${name}.${root}.caddy"
+		cat >"$file" <<EOF_DOMAIN
+${name}.${root} {
+  reverse_proxy ${upstream}:${port}
+}
+EOF_DOMAIN
+		caddy fmt --overwrite "$file" >/dev/null 2>&1 || true
+		caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+		echo "Local route ready: http://${name}.${root} -> ${upstream}:${port}"
+		;;
+	remove | rm)
+		name="$(sanitize_domain_label "${2:-}")" || { echo "Usage: homeos domain remove <name>"; exit 1; }
+		rm -f "/etc/caddy/conf.d/${name}.${root}.caddy"
+		caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+		echo "Removed ${name}.${root}"
+		;;
+	list | ls)
+		find /etc/caddy/conf.d -maxdepth 1 -name "*.${root}.caddy" -print 2>/dev/null | sed -E "s#.*/([^/]+)\\.caddy#\\1#" | sort || true
+		;;
+	*) echo "Usage: homeos domain {add|remove|list}"; exit 1 ;;
+	esac
+}
+
 download_installer() {
 	curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh || {
 		echo "Failed to download installer"
@@ -1333,10 +1840,11 @@ case "${1:-status}" in
 	restart) shift || true; do_restart "$@" ;;
 	backup) do_backup ;;
 	config) show_config ;;
+	domain) shift || true; do_domain "$@" ;;
 	uninstall) shift || true; do_uninstall "$@" ;;
 	update) do_update ;;
-	--version|-v) echo "HomeOS CLI v1.0.0" ;;
-	*) echo "Usage: homeos {status|doctor|logs|restart|backup|config|update|--version}"; exit 1 ;;
+	--version|-v) echo "HomeOS CLI v1.1.0" ;;
+	*) echo "Usage: homeos {status|doctor|logs|restart|backup|config|domain|update|uninstall|--version}"; exit 1 ;;
 esac
 CLIEOF
 
@@ -1393,7 +1901,9 @@ print_summary() {
 	echo
 	echo -e "${BOLD}Services:${RESET}"
 	local primary_ip
-	primary_ip="$(hostname -I 2>/dev/null | awk '{print $1}' || ip -4 route get 1 2>/dev/null | awk '{print $7; exit}' || echo 'localhost')"
+	primary_ip="$(get_primary_ip)"
+	[[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]] && echo "  Local domains: *.${LOCAL_DOMAIN_ROOT} -> ${primary_ip} (set router DNS to this server)"
+	[[ "$INSTALL_COOLIFY" == "yes" ]] && echo "  Coolify:       http://${primary_ip}:8000 / http://coolify.${LOCAL_DOMAIN_ROOT}"
 	[[ "$INSTALL_CASAOS" == "yes" ]] && echo "  CasaOS:        http://${primary_ip}:81"
 	[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && echo "  Home Assistant: http://${primary_ip}:8123"
 	[[ "$INSTALL_JELLYFIN" == "yes" ]] && echo "  Jellyfin:      http://${primary_ip}:8096"
@@ -1412,6 +1922,7 @@ print_summary() {
 	echo "  homeos restart  - Restart a service"
 	echo "  homeos backup   - Trigger backup"
 	echo "  homeos config   - Show configuration"
+	echo "  homeos domain   - Manage local app/site domains"
 	echo "  homeos update   - Update HomeOS"
 	echo
 	echo -e "${YELLOW}SSH Access:${RESET}"
@@ -1536,11 +2047,14 @@ main() {
 	fi
 
 	if [[ "$HOMEOS_MODE" == "minimal" ]]; then
+		INSTALL_COOLIFY="no"
 		INSTALL_CASAOS="no"
 		INSTALL_HOMEASSISTANT="no"
 		INSTALL_JELLYFIN="no"
 		INSTALL_VAULTWARDEN="no"
 		INSTALL_AI_CLIS="no"
+		INSTALL_PI="no"
+		INSTALL_AI_PROJECTS="no"
 		INSTALL_GITHUB_TOOLS="no"
 		INSTALL_MONITORING="no"
 		INSTALL_BACKUPS="no"
@@ -1564,12 +2078,16 @@ main() {
 		[[ "$INSTALL_NODE" == "yes" ]] && info "  - Node.js 24 + pnpm + Bun"
 		[[ "$INSTALL_TAILSCALE" == "yes" ]] && info "  - Tailscale VPN"
 		[[ "$INSTALL_CADDY" == "yes" ]] && info "  - Caddy reverse proxy"
+		[[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]] && info "  - Local custom domains (*.${LOCAL_DOMAIN_ROOT})"
+		[[ "$INSTALL_COOLIFY" == "yes" ]] && info "  - Coolify app platform (:8000)"
 		[[ "$INSTALL_COCKPIT" == "yes" ]] && info "  - Cockpit + file sharing"
 		[[ "$INSTALL_CASAOS" == "yes" ]] && info "  - CasaOS"
 		[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && info "  - Home Assistant (:8123)"
 		[[ "$INSTALL_JELLYFIN" == "yes" ]] && info "  - Jellyfin (:8096)"
 		[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && info "  - Vaultwarden (:8222)"
 		[[ "$INSTALL_AI_CLIS" == "yes" ]] && info "  - AI CLIs"
+		[[ "$INSTALL_PI" == "yes" ]] && info "  - Pi coding agent + packages"
+		[[ "$INSTALL_AI_PROJECTS" == "yes" ]] && info "  - AI project library (${AI_PROJECTS} -> ${AI_PROJECT_TOOLS})"
 		[[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && info "  - GitHub dev tools"
 		[[ "$INSTALL_MONITORING" == "yes" ]] && info "  - Prometheus (:9091) + Grafana (:3000)"
 		[[ "$INSTALL_BACKUPS" == "yes" ]] && info "  - Backups (restic)"
@@ -1589,7 +2107,9 @@ main() {
 	install_docker
 	install_node
 	install_tailscale
+	install_local_domains
 	install_caddy
+	install_coolify
 	install_cockpit
 	install_casaos
 	install_homeassistant
@@ -1598,6 +2118,8 @@ main() {
 	install_monitoring
 	install_watchtower
 	install_ai_clis
+	install_pi
+	install_ai_projects
 	install_github_tools
 	install_backups
 	install_firewall
