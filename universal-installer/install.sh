@@ -147,8 +147,10 @@ preflight_checks() {
 	fi
 
 	local ram_mb
-	ram_mb="$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo 0)"
-	if [[ "$ram_mb" -lt 2048 ]]; then
+	ram_mb="$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || awk '/MemTotal:/ {print int($2/1024)}' /proc/meminfo || echo 0)"
+	if [[ "$ram_mb" -eq 0 ]]; then
+		warn "Could not detect RAM (container environment?). Skipping RAM check."
+	elif [[ "$ram_mb" -lt 2048 ]]; then
 		warn "Low RAM: ${ram_mb}MB. 2GB+ recommended (4GB for full mode)."
 		fails=$((fails + 1))
 	else
@@ -902,22 +904,22 @@ install_firewall() {
 	for p in $EXTRA_UDP_PORTS; do udp_ports+=("$p"); done
 
 	if [[ "$OS_FAMILY" == "debian" ]]; then
-		ufw --force default deny incoming
-		ufw --force default allow outgoing
-		for p in "${tcp_ports[@]}"; do ufw --force allow "$p"/tcp; done
-		for p in "${udp_ports[@]}"; do ufw --force allow "$p"/udp; done
+		ufw default deny incoming || warn "ufw default deny failed (may be container)"
+		ufw default allow outgoing || warn "ufw default allow failed (may be container)"
+		for p in "${tcp_ports[@]}"; do ufw allow "$p"/tcp || warn "ufw allow $p/tcp failed"; done
+		for p in "${udp_ports[@]}"; do ufw allow "$p"/udp || warn "ufw allow $p/udp failed"; done
 		ufw allow in on tailscale0 2>/dev/null || true
-		ufw --force enable
+		ufw --force enable || warn "ufw enable failed (may be container without iptables/netfilter)"
 	else
 		if command -v systemctl &>/dev/null && systemctl is-system-running &>/dev/null; then
 			systemctl enable --now firewalld 2>/dev/null || true
 		else
 			warn "systemd not running; skipping firewalld enable"
 		fi
-		for p in "${tcp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/tcp; done
-		for p in "${udp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/udp; done
+		for p in "${tcp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/tcp || warn "firewall-cmd add-port $p/tcp failed"; done
+		for p in "${udp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/udp || warn "firewall-cmd add-port $p/udp failed"; done
 		firewall-cmd --permanent --add-service=ssh 2>/dev/null || true
-		firewall-cmd --reload
+		firewall-cmd --reload || warn "firewall-cmd reload failed"
 	fi
 
 	ok "Firewall configured"
