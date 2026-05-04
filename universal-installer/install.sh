@@ -29,6 +29,7 @@ DRY_RUN="no"
 SKIP_CHECKS="no"
 YES_FLAG="no"
 COMMAND="install"
+UNINSTALL_PURGE_PACKAGES="no"
 
 # ------------------------------------------------------------------------------
 # DEFAULT CONFIGURATION (overridden by config file)
@@ -71,6 +72,7 @@ DOCKER_NETWORK_RANGE="172.30.0.0/16"
 TIMEZONE=""
 GITHUB_TOOLS="all"
 GRAFANA_ADMIN_PASSWORD=""
+GRAFANA_BIND_ADDRESS="127.0.0.1"
 
 # ------------------------------------------------------------------------------
 # STATE
@@ -275,6 +277,7 @@ load_config() {
 	}
 
 	log "Loading config: $cfg"
+	CONFIG_FILE="$cfg"
 
 	while IFS='=' read -r key value; do
 		[[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
@@ -287,7 +290,7 @@ load_config() {
 		value="$(expand_config_value "$value")"
 
 		case "$key" in
-		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | GRAFANA_ADMIN_PASSWORD)
+		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | GRAFANA_ADMIN_PASSWORD | GRAFANA_BIND_ADDRESS)
 			printf -v "$key" '%s' "$value"
 			;;
 		esac
@@ -374,6 +377,32 @@ pkg_install() {
 		DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 	else
 		dnf install -y "${pkgs[@]}"
+	fi
+}
+
+pkg_remove_if_installed() {
+	local candidates=("$@") installed=() pkg
+	[[ ${#candidates[@]} -gt 0 ]] || return 0
+
+	if [[ "$OS_FAMILY" == "debian" ]]; then
+		for pkg in "${candidates[@]}"; do
+			if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+				installed+=("$pkg")
+			fi
+		done
+		[[ ${#installed[@]} -gt 0 ]] || return 0
+		log "Removing packages: ${installed[*]}"
+		DEBIAN_FRONTEND=noninteractive apt-get remove -y --purge "${installed[@]}" || warn "Some package removals failed"
+		DEBIAN_FRONTEND=noninteractive apt-get autoremove -y || true
+	else
+		for pkg in "${candidates[@]}"; do
+			if rpm -q "$pkg" >/dev/null 2>&1; then
+				installed+=("$pkg")
+			fi
+		done
+		[[ ${#installed[@]} -gt 0 ]] || return 0
+		log "Removing packages: ${installed[*]}"
+		dnf remove -y "${installed[@]}" || warn "Some package removals failed"
 	fi
 }
 
@@ -777,7 +806,7 @@ install_monitoring() {
 	local stack_dir="$HOMEOS_DATA_DIR/stacks/monitoring"
 	mkdir -p "$stack_dir"
 
-	local grafana_pass="$GRAFANA_ADMIN_PASSWORD"
+	local grafana_pass="$GRAFANA_ADMIN_PASSWORD" grafana_port="3000:3000"
 	if [[ -z "$grafana_pass" ]]; then
 		if [[ -f "$INSTALL_STATE_DIR/grafana-password.txt" && -s "$INSTALL_STATE_DIR/grafana-password.txt" ]]; then
 			grafana_pass="$(cat "$INSTALL_STATE_DIR/grafana-password.txt")"
@@ -789,6 +818,10 @@ install_monitoring() {
 			chmod 600 "$INSTALL_STATE_DIR/grafana-password.txt"
 			warn "Generated Grafana admin password. Retrieve with: sudo cat $INSTALL_STATE_DIR/grafana-password.txt"
 		fi
+	fi
+
+	if [[ -n "$GRAFANA_BIND_ADDRESS" && "$GRAFANA_BIND_ADDRESS" != "0.0.0.0" && "$GRAFANA_BIND_ADDRESS" != "*" ]]; then
+		grafana_port="${GRAFANA_BIND_ADDRESS}:3000:3000"
 	fi
 
 	cat >"$stack_dir/docker-compose.yml" <<EOF
@@ -810,7 +843,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${grafana_port}"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${grafana_pass}
     volumes:
@@ -834,7 +867,7 @@ scrape_configs:
 EOF
 
 	(cd "$stack_dir" && docker compose up -d) 2>/dev/null || warn "Monitoring stack start failed (docker daemon may not be running)"
-	ok "Monitoring: Prometheus :9091, Grafana :3000"
+	ok "Monitoring: Prometheus :9091, Grafana ${grafana_port}"
 }
 
 # ------------------------------------------------------------------------------
@@ -1035,6 +1068,54 @@ CRON
 # ------------------------------------------------------------------------------
 # SECTION: UNINSTALL
 # ------------------------------------------------------------------------------
+purge_homeos_packages() {
+	[[ "$UNINSTALL_PURGE_PACKAGES" == "yes" ]] || return 0
+
+	local ans=""
+	if [[ "$YES_FLAG" == "yes" ]]; then
+		ans="yes"
+	elif [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
+		ans="no"
+	else
+		read -r -p "Also remove HomeOS-installed packages and repositories? [y/N] " ans
+	fi
+
+	if [[ "${ans,,}" != "y" && "${ans,,}" != "yes" ]]; then
+		warn "Package/repository purge skipped. Re-run with --yes --purge to confirm."
+		return 0
+	fi
+
+	log "Removing HomeOS package repositories..."
+	if [[ "$OS_FAMILY" == "debian" ]]; then
+		rm -f \
+			/etc/apt/sources.list.d/docker.list \
+			/etc/apt/sources.list.d/caddy.list \
+			/etc/apt/sources.list.d/nodesource.list \
+			/etc/apt/sources.list.d/nodesource.sources \
+			/etc/apt/sources.list.d/tailscale.list \
+			/etc/apt/sources.list.d/45drives.sources
+		rm -f \
+			/etc/apt/keyrings/docker.asc \
+			/etc/apt/keyrings/caddy.asc \
+			/usr/share/keyrings/nodesource.gpg \
+			/usr/share/keyrings/tailscale-archive-keyring.gpg \
+			/usr/share/keyrings/45drives-archive-keyring.gpg
+		pkg_remove_if_installed \
+			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+			nodejs tailscale tailscale-archive-keyring caddy casaos \
+			cockpit cockpit-ws cockpit-system cockpit-bridge cockpit-storaged cockpit-packagekit \
+			restic prometheus-node-exporter
+	else
+		rm -f \
+			/etc/yum.repos.d/docker-ce.repo \
+			/etc/yum.repos.d/tailscale.repo \
+			/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:group_caddy:caddy.repo
+		pkg_remove_if_installed \
+			docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+			nodejs npm tailscale caddy casaos cockpit cockpit-ws cockpit-system restic
+	fi
+}
+
 uninstall_homeos() {
 	section "Uninstalling HomeOS"
 
@@ -1086,10 +1167,16 @@ uninstall_homeos() {
 	if [[ -f /etc/docker/daemon.json ]] && grep -q 'default-address-pools' /etc/docker/daemon.json && grep -q "$DOCKER_NETWORK_RANGE" /etc/docker/daemon.json; then
 		rm -f /etc/docker/daemon.json
 	fi
+
+	purge_homeos_packages
 	rm -rf "$INSTALL_STATE_DIR"
 
-	ok "HomeOS uninstalled. Docker, Node.js, and system packages were not removed."
-	info "To remove packages manually: sudo apt remove docker-ce nodejs caddy cockpit"
+	if [[ "$UNINSTALL_PURGE_PACKAGES" == "yes" ]]; then
+		ok "HomeOS uninstalled. Package purge was requested; see warnings above for anything preserved."
+	else
+		ok "HomeOS uninstalled. Docker, Node.js, and system packages were not removed."
+		info "To remove packages too: sudo ./install.sh uninstall --purge --yes"
+	fi
 }
 
 # ------------------------------------------------------------------------------
@@ -1221,14 +1308,19 @@ download_installer() {
 do_uninstall() {
 	echo "Pulling latest HomeOS installer..."
 	download_installer
-	sudo bash /tmp/homeos-install.sh uninstall
+	sudo bash /tmp/homeos-install.sh uninstall "$@"
 }
 
 do_update() {
 	echo "Pulling latest HomeOS installer..."
 	download_installer
-	local args=(--unattended)
-	if [[ -f /etc/homeos/homeos.conf ]]; then
+	local args=(--unattended) cfg=""
+	if [[ -f /var/lib/homeos/config-path ]]; then
+		cfg="$(cat /var/lib/homeos/config-path)"
+	fi
+	if [[ -n "$cfg" && -f "$cfg" ]]; then
+		args+=(--config "$cfg")
+	elif [[ -f /etc/homeos/homeos.conf ]]; then
 		args+=(--config /etc/homeos/homeos.conf)
 	fi
 	sudo bash /tmp/homeos-install.sh "${args[@]}"
@@ -1241,7 +1333,7 @@ case "${1:-status}" in
 	restart) shift || true; do_restart "$@" ;;
 	backup) do_backup ;;
 	config) show_config ;;
-	uninstall) do_uninstall ;;
+	uninstall) shift || true; do_uninstall "$@" ;;
 	update) do_update ;;
 	--version|-v) echo "HomeOS CLI v1.0.0" ;;
 	*) echo "Usage: homeos {status|doctor|logs|restart|backup|config|update|--version}"; exit 1 ;;
@@ -1307,7 +1399,11 @@ print_summary() {
 	[[ "$INSTALL_JELLYFIN" == "yes" ]] && echo "  Jellyfin:      http://${primary_ip}:8096"
 	[[ "$INSTALL_COCKPIT" == "yes" ]] && echo "  Cockpit:       https://${primary_ip}:9090"
 	[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && echo "  Vaultwarden:   http://${primary_ip}:8222"
-	[[ "$INSTALL_MONITORING" == "yes" ]] && echo "  Grafana:       http://${primary_ip}:3000"
+	if [[ "$INSTALL_MONITORING" == "yes" ]]; then
+		local grafana_host="$primary_ip"
+		[[ -n "$GRAFANA_BIND_ADDRESS" && "$GRAFANA_BIND_ADDRESS" != "0.0.0.0" && "$GRAFANA_BIND_ADDRESS" != "*" ]] && grafana_host="$GRAFANA_BIND_ADDRESS"
+		echo "  Grafana:       http://${grafana_host}:3000"
+	fi
 	echo
 	echo -e "${BOLD}Management:${RESET}"
 	echo "  homeos status   - Show system status"
@@ -1360,6 +1456,10 @@ parse_args() {
 			YES_FLAG="yes"
 			shift
 			;;
+		--purge | --purge-packages | --full)
+			UNINSTALL_PURGE_PACKAGES="yes"
+			shift
+			;;
 		uninstall)
 			COMMAND="uninstall"
 			shift
@@ -1381,6 +1481,7 @@ Options:
   --dry-run            Show what would be installed without making changes
   --skip-checks        Skip pre-flight checks
   --yes                Auto-accept prompts in interactive mode
+  --purge              With uninstall, also remove installed packages/repos
   --version            Show version
   --help               Show this help
 
@@ -1393,7 +1494,8 @@ Examples:
   sudo $0 --config /etc/homeos/homeos.conf   # Use custom config
   sudo $0 --unattended --mode minimal        # Unattended minimal
   sudo $0 --dry-run                          # Preview installation
-  sudo $0 uninstall                          # Remove HomeOS
+  sudo $0 uninstall                          # Remove HomeOS data/config only
+  sudo $0 uninstall --purge --yes            # Remove HomeOS plus packages/repos
 
 Config locations (first found wins):
   - --config <path>
@@ -1476,6 +1578,11 @@ main() {
 		info ""
 		ok "Dry run complete. No changes made."
 		exit 0
+	fi
+
+	if [[ -n "$CONFIG_FILE" ]]; then
+		printf '%s\n' "$CONFIG_FILE" >"$INSTALL_STATE_DIR/config-path" 2>/dev/null || true
+		chmod 600 "$INSTALL_STATE_DIR/config-path" 2>/dev/null || true
 	fi
 
 	install_base

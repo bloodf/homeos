@@ -60,6 +60,7 @@ Options:
   --dry-run            Show what would be installed without making changes
   --skip-checks        Skip pre-flight checks
   --yes                Auto-accept prompts in interactive mode
+  --purge              With uninstall, also remove installed packages/repos
   --version            Show version
   --help               Show help
 
@@ -83,7 +84,7 @@ Commands:
 | ------- | ------- | ------------------------------------ |
 | CasaOS  | `:81`   | Container dashboard                  |
 | Cockpit | `:9090` | Server admin + 45Drives file sharing |
-| Grafana | `:3000` | Metrics dashboards                   |
+| Grafana | `127.0.0.1:3000` by default | Metrics dashboards |
 
 ### Media & Home Automation
 
@@ -134,6 +135,7 @@ INSTALL_AI_CLIS="yes"
 TAILSCALE_AUTH_KEY="tskey-auth-..."
 VAULTWARDEN_ADMIN_TOKEN="..."
 GRAFANA_ADMIN_PASSWORD=""  # optional; random password generated if empty
+GRAFANA_BIND_ADDRESS="127.0.0.1"  # use 0.0.0.0 for LAN or a Tailscale IP
 ANTHROPIC_API_KEY="sk-ant-..."
 OPENAI_API_KEY="sk-..."
 
@@ -170,7 +172,7 @@ homeos logs <svc>   # View container logs (ha, jellyfin, vaultwarden, etc.)
 homeos restart <svc> # Restart a service
 homeos backup       # Trigger backup manually
 homeos config       # Show current configuration
-homeos update       # Pull latest installer and re-run
+homeos update       # Pull latest installer and re-run with the original config path
 homeos --version    # Show CLI version
 ```
 
@@ -189,6 +191,7 @@ Use `--skip-checks` to bypass. In `--dry-run` mode, checks are previewed but not
 
 - **Random admin password** generated in unattended mode (stored securely in `/var/lib/homeos/admin-password.txt`)
 - **Random Grafana password** generated when monitoring is enabled and `GRAFANA_ADMIN_PASSWORD` is empty (stored in `/var/lib/homeos/grafana-password.txt`)
+- **Grafana localhost binding** by default (`GRAFANA_BIND_ADDRESS="127.0.0.1"`); set `0.0.0.0` for LAN access or a Tailscale IP for tailnet-only access
 - **SSH hardening** — root login disabled, password auth only until SSH key is present
 - **Firewall** — Only required ports open (22, 80, 443, 8123, 8096, 8222, 3000, 9091, etc.)
 - **Fail2ban** — Brute-force protection on SSH
@@ -235,6 +238,16 @@ sudo bash install.sh --yes uninstall
 ```
 
 This stops all HomeOS containers, removes Docker volumes (optional), and deletes HomeOS-owned files including `/opt/homeos`, `/etc/homeos`, the SSH hardening drop-in, the HomeOS sudoers file, generated HomeOS secrets, and the `homeos` CLI. Docker, Node.js, Caddy, Cockpit, and other system packages are preserved.
+
+For a full purge that also removes HomeOS-installed packages and package repositories:
+
+```bash
+sudo bash install.sh uninstall --purge --yes
+# or from an installed system:
+homeos uninstall --purge --yes
+```
+
+In unattended mode without `--yes`, package purging is intentionally skipped to avoid accidental destructive removals.
 
 ## Development
 

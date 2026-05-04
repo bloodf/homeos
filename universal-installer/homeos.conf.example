@@ -78,6 +78,10 @@ VAULTWARDEN_ADMIN_TOKEN=""
 # Grafana admin password (optional - random password generated if empty)
 GRAFANA_ADMIN_PASSWORD=""
 
+# Grafana bind address. Default is localhost for safer access.
+# Set to "0.0.0.0" for LAN-wide access, or a Tailscale IP for tailnet-only access.
+GRAFANA_BIND_ADDRESS="127.0.0.1"
+
 # =============================================================================
 # STORAGE PATHS
 # =============================================================================

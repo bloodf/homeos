@@ -16,6 +16,7 @@
 | Debian 12 (bookworm) | regression  | post-bugfix validation               | ✅ PASS | ~3m 30s |
 | Debian 12 (bookworm) | post-review | base, docker, node, CLI, idempotency | ✅ PASS | ~4m     |
 | Debian 12 (bookworm) | targeted    | config injection, uninstall, Grafana | ✅ PASS | <1m     |
+| Debian 12 (bookworm) | v1.1 smoke  | config-path, purge parse, Grafana bind | ✅ PASS | <1m     |
 | Fedora 40            | minimal     | base, docker, node                   | ✅ PASS | ~2m 15s |
 
 ---
@@ -162,6 +163,10 @@ Running the installer a second time on the same system:
 **Problem:** Minimal Debian containers may not include `uptime`; `homeos status` printed `command not found` under `set -euo pipefail`.
 **Fix:** Added safe OS/uptime detection with `command -v uptime` and `unavailable` fallback.
 
+### 16. v1.1 Follow-up Improvements
+
+**Fixes:** Custom `--config` paths are recorded under `/var/lib/homeos/config-path` so `homeos update` can re-use them; `uninstall --purge --yes` can remove HomeOS-installed packages/repos; Grafana now binds to `127.0.0.1:3000` by default and can be changed with `GRAFANA_BIND_ADDRESS`.
+
 ---
 
 ## Known Limitations
@@ -216,6 +221,7 @@ bash /installer/install.sh --unattended --mode minimal
 | Debian 12 full        | ✅     |
 | Debian 12 idempotent  | ✅     |
 | Debian post-review    | ✅     |
+| v1.1 smoke checks     | ✅     |
 | Fedora 40 minimal     | ✅     |
 | homeos CLI functional | ✅     |
 | Install log complete  | ✅     |
