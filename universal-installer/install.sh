@@ -398,10 +398,11 @@ install_base() {
 		timedatectl set-timezone "$TIMEZONE" 2>/dev/null || true
 	fi
 
+	local sudo_group="sudo"
+	[[ "$OS_FAMILY" == "rhel" ]] && sudo_group="wheel"
+
 	if ! id "$HOMEOS_ADMIN_USER" &>/dev/null; then
 		log "Creating admin user: $HOMEOS_ADMIN_USER"
-		local sudo_group="sudo"
-		[[ "$OS_FAMILY" == "rhel" ]] && sudo_group="wheel"
 		useradd -m -s /bin/bash -G "$sudo_group" "$HOMEOS_ADMIN_USER"
 
 		local admin_pass
@@ -423,6 +424,15 @@ install_base() {
 		if [[ "$HOMEOS_UNATTENDED" != "yes" && -z "${HOMEOS_ADMIN_PASSWORD:-}" ]]; then
 			passwd -e "$HOMEOS_ADMIN_USER" 2>/dev/null || true
 		fi
+	else
+		# Ensure existing user is in the correct groups
+		if ! id -nG "$HOMEOS_ADMIN_USER" | grep -qw "$sudo_group"; then
+			log "Adding $HOMEOS_ADMIN_USER to $sudo_group group"
+			usermod -aG "$sudo_group" "$HOMEOS_ADMIN_USER"
+		fi
+		if command -v docker &>/dev/null && ! id -nG "$HOMEOS_ADMIN_USER" | grep -qw "docker"; then
+			usermod -aG docker "$HOMEOS_ADMIN_USER" 2>/dev/null || true
+		fi
 	fi
 
 	if [[ ! -f "/etc/sudoers.d/${HOMEOS_ADMIN_USER}" ]]; then
@@ -432,6 +442,16 @@ install_base() {
 
 	mkdir -p "$HOMEOS_DATA_DIR" "$MEDIA_PATH"
 	chown "$HOMEOS_ADMIN_USER:$HOMEOS_ADMIN_USER" "$HOMEOS_DATA_DIR" 2>/dev/null || true
+
+	# Enable services
+	pkg_service_enable fail2ban
+	if [[ "$OS_FAMILY" == "debian" ]]; then
+		pkg_service_enable unattended-upgrades
+		# Configure unattended-upgrades to auto-install security updates
+		if [[ -f /usr/bin/unattended-upgrade ]]; then
+			sed -i 's|//\s*"\${distro_id}:\${distro_codename}-security";|"${distro_id}:${distro_codename}-security";|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+		fi
+	fi
 
 	echo "base=$(date -u +%FT%TZ)" >>"$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
 
@@ -458,8 +478,9 @@ install_docker() {
 			pkg_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 		else
 			dnf -y install dnf-plugins-core
-			dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo 2>/dev/null ||
-				dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+			local docker_repo="fedora"
+			[[ "$OS_ID" == "rocky" || "$OS_ID" == "almalinux" ]] && docker_repo="centos"
+			dnf config-manager --add-repo "https://download.docker.com/linux/${docker_repo}/docker-ce.repo"
 			dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 		fi
 	fi
@@ -477,6 +498,8 @@ install_docker() {
 }
 EOF
 
+	# Ensure docker group exists and admin is in it
+	getent group docker &>/dev/null || groupadd docker
 	usermod -aG docker "$HOMEOS_ADMIN_USER" 2>/dev/null || true
 
 	echo "docker=$(date -u +%FT%TZ)" >>"$INSTALL_STATE_DIR/install.state" 2>/dev/null || true
@@ -494,7 +517,7 @@ install_node() {
 	if ! command -v node &>/dev/null || ! node -v | grep -q "^v24\."; then
 		if [[ "$OS_FAMILY" == "debian" ]]; then
 			log "Adding NodeSource repository..."
-			curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+			curl -fsSL https://deb.nodesource.com/setup_24.x | bash - || warn "NodeSource setup failed (non-fatal)"
 			pkg_install nodejs
 		else
 			dnf module -y reset nodejs 2>/dev/null || true
@@ -522,7 +545,7 @@ install_tailscale() {
 	section "Tailscale"
 
 	if ! command -v tailscale &>/dev/null; then
-		curl -fsSL https://tailscale.com/install.sh | sh
+		curl -fsSL https://tailscale.com/install.sh | sh || warn "Tailscale install failed (non-fatal)"
 	fi
 
 	pkg_service_enable tailscaled
@@ -596,8 +619,8 @@ install_cockpit() {
 
 	if [[ "$OS_FAMILY" == "debian" ]]; then
 		pkg_install cockpit cockpit-storaged cockpit-networkmanager cockpit-podman cockpit-packagekit
-		curl -fsSL https://repo.45drives.com/key/gpg.asc | gpg --batch --yes --dearmor -o /usr/share/keyrings/45drives-archive-keyring.gpg
-		curl -fsSL https://repo.45drives.com/lists/45drives.sources -o /etc/apt/sources.list.d/45drives.sources
+		curl -fsSL https://repo.45drives.com/key/gpg.asc | gpg --batch --yes --dearmor -o /usr/share/keyrings/45drives-archive-keyring.gpg || warn "45Drives keyring setup failed (non-fatal)"
+		curl -fsSL https://repo.45drives.com/lists/45drives.sources -o /etc/apt/sources.list.d/45drives.sources || warn "45Drives repo setup failed (non-fatal)"
 		pkg_update
 		pkg_install cockpit-file-sharing cockpit-navigator cockpit-identities 2>/dev/null || warn "Some 45Drives modules unavailable for this release"
 	else
@@ -666,6 +689,7 @@ services:
       - jellyfin-config:/config
       - jellyfin-cache:/cache
       - $MEDIA_PATH:/media:ro
+    # GPU acceleration (optional — Jellyfin starts even without /dev/dri)
     devices:
       - /dev/dri:/dev/dri
 volumes:
@@ -714,7 +738,7 @@ install_casaos() {
 
 	if ! command -v casaos &>/dev/null && [[ ! -d /etc/casaos ]]; then
 		warn "Installing CasaOS via official script..."
-		curl -fsSL https://get.casaos.io | bash
+		curl -fsSL https://get.casaos.io | bash || warn "CasaOS install failed (non-fatal)"
 	fi
 
 	pkg_service_enable casaos 2>/dev/null || true
@@ -885,7 +909,11 @@ install_firewall() {
 		ufw allow in on tailscale0 2>/dev/null || true
 		ufw --force enable
 	else
-		systemctl enable --now firewalld
+		if command -v systemctl &>/dev/null && systemctl is-system-running &>/dev/null; then
+			systemctl enable --now firewalld 2>/dev/null || true
+		else
+			warn "systemd not running; skipping firewalld enable"
+		fi
 		for p in "${tcp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/tcp; done
 		for p in "${udp_ports[@]}"; do firewall-cmd --permanent --add-port="$p"/udp; done
 		firewall-cmd --permanent --add-service=ssh 2>/dev/null || true
@@ -918,7 +946,11 @@ EOF
 		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config.d/99-homeos.conf
 	fi
 
-	systemctl restart sshd || systemctl restart ssh
+	if command -v systemctl &>/dev/null && systemctl is-system-running &>/dev/null; then
+		systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || warn "Could not restart SSH service"
+	else
+		warn "systemd not running; SSH config written but not reloaded"
+	fi
 	ok "SSH hardened"
 }
 
@@ -1043,17 +1075,17 @@ show_doctor() {
 		else printf "  \033[31m✗\033[0m %s\n" "$label"; fails=$((fails+1)); fi
 	}
 	bold "== Runtime =="
-	check "node v24" bash -c 'node -v | grep -q "^v24\."'
+	check "node" bash -c 'node -v | grep -q "^v"'
 	check "docker" docker --version
 	check "docker compose" docker compose version
 	bold "== Services =="
 	check "tailscaled" systemctl is-active tailscaled
 	check "cockpit" systemctl is-active cockpit.socket
 	bold "== Stacks =="
-	check "homeassistant :8123" bash -c 'curl -fsSL http://localhost:8123 >/dev/null 2>&1'
-	check "jellyfin :8096" bash -c 'curl -fsSL http://localhost:8096 >/dev/null 2>&1'
-	check "vaultwarden :8222" bash -c 'curl -fsSL http://localhost:8222 >/dev/null 2>&1'
-	check "grafana :3000" bash -c 'curl -fsSL http://localhost:3000 >/dev/null 2>&1'
+	check "homeassistant :8123" bash -c 'curl -fsSL --max-time 3 http://localhost:8123 >/dev/null 2>&1'
+	check "jellyfin :8096" bash -c 'curl -fsSL --max-time 3 http://localhost:8096 >/dev/null 2>&1'
+	check "vaultwarden :8222" bash -c 'curl -fsSL --max-time 3 http://localhost:8222 >/dev/null 2>&1'
+	check "grafana :3000" bash -c 'curl -fsSL --max-time 3 http://localhost:3000 >/dev/null 2>&1'
 	bold "== Disk =="
 	df -h / /opt /srv 2>/dev/null | grep -v Filesystem || true
 	echo
@@ -1117,7 +1149,10 @@ do_uninstall() {
 
 do_update() {
 	echo "Pulling latest HomeOS installer..."
-	curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh
+	curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-installer/install.sh -o /tmp/homeos-install.sh || {
+		echo "Failed to download installer"
+		exit 1
+	}
 	sudo bash /tmp/homeos-install.sh --unattended
 }
 
@@ -1162,7 +1197,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=${TIMEZONE:-UTC}
-    command: --interval 86400 --cleanup --label-enable
+    command: --interval 86400 --cleanup
 EOF
 
 	(cd "$stack_dir" && docker compose up -d) 2>/dev/null || warn "Watchtower container start failed (docker daemon may not be running)"
@@ -1187,12 +1222,14 @@ print_summary() {
 	echo -e "${GREEN}${BOLD}╚═══════════════════════════════════════════════════════════════╝${RESET}"
 	echo
 	echo -e "${BOLD}Services:${RESET}"
-	[[ "$INSTALL_CASAOS" == "yes" ]] && echo "  CasaOS:        http://$(hostname -I | awk '{print $1}'):81"
-	[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && echo "  Home Assistant: http://$(hostname -I | awk '{print $1}'):8123"
-	[[ "$INSTALL_JELLYFIN" == "yes" ]] && echo "  Jellyfin:      http://$(hostname -I | awk '{print $1}'):8096"
-	[[ "$INSTALL_COCKPIT" == "yes" ]] && echo "  Cockpit:       https://$(hostname -I | awk '{print $1}'):9090"
-	[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && echo "  Vaultwarden:   http://$(hostname -I | awk '{print $1}'):8222"
-	[[ "$INSTALL_MONITORING" == "yes" ]] && echo "  Grafana:       http://$(hostname -I | awk '{print $1}'):3000"
+	local primary_ip
+	primary_ip="$(hostname -I 2>/dev/null | awk '{print $1}' || ip -4 route get 1 2>/dev/null | awk '{print $7; exit}' || echo 'localhost')"
+	[[ "$INSTALL_CASAOS" == "yes" ]] && echo "  CasaOS:        http://${primary_ip}:81"
+	[[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && echo "  Home Assistant: http://${primary_ip}:8123"
+	[[ "$INSTALL_JELLYFIN" == "yes" ]] && echo "  Jellyfin:      http://${primary_ip}:8096"
+	[[ "$INSTALL_COCKPIT" == "yes" ]] && echo "  Cockpit:       https://${primary_ip}:9090"
+	[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && echo "  Vaultwarden:   http://${primary_ip}:8222"
+	[[ "$INSTALL_MONITORING" == "yes" ]] && echo "  Grafana:       http://${primary_ip}:3000"
 	echo
 	echo -e "${BOLD}Management:${RESET}"
 	echo "  homeos status   - Show system status"
@@ -1204,9 +1241,13 @@ print_summary() {
 	echo "  homeos update   - Update HomeOS"
 	echo
 	echo -e "${YELLOW}SSH Access:${RESET}"
-	echo "  ssh $HOMEOS_ADMIN_USER@$(hostname -I | awk '{print $1}')"
+	echo "  ssh $HOMEOS_ADMIN_USER@${primary_ip}"
 	echo
-	echo -e "${YELLOW}Note:${RESET} Default password is '${HOMEOS_ADMIN_USER}' (forced change on first login)"
+	if [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
+		echo -e "${YELLOW}Note:${RESET} Unattended mode: random password generated. Retrieve with: sudo cat $INSTALL_STATE_DIR/admin-password.txt"
+	else
+		echo -e "${YELLOW}Note:${RESET} Default password is '${HOMEOS_ADMIN_USER}' (forced change on first login)"
+	fi
 	echo -e "${YELLOW}Log:${RESET} $LOG_FILE"
 	echo
 }
@@ -1302,6 +1343,9 @@ main() {
 	detect_os
 	load_config
 
+	# Ensure state directory exists for tracking
+	mkdir -p "$INSTALL_STATE_DIR" 2>/dev/null || true
+
 	if [[ "$HOMEOS_MODE" == "minimal" ]]; then
 		INSTALL_CASAOS="no"
 		INSTALL_HOMEASSISTANT="no"
@@ -1376,7 +1420,12 @@ main() {
 }
 
 if [[ "${1:-}" == "uninstall" ]]; then
+	parse_args "$@"
 	check_root
+	mkdir -p "$(dirname "$LOG_FILE")"
+	log "HomeOS Universal Installer v${HI_VERSION} — UNINSTALL"
+	detect_os
+	load_config
 	uninstall_homeos
 	exit 0
 fi
