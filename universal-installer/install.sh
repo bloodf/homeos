@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HomeOS Universal Installer v1.1.0
+# HomeOS Universal Installer v1.2.0
 # Works on Debian 12+/Ubuntu 22.04+ and Fedora 38+/RHEL 9+
 #
 # Usage:
@@ -22,7 +22,7 @@ IFS=$'\n\t'
 # ------------------------------------------------------------------------------
 # SCRIPT METADATA
 # ------------------------------------------------------------------------------
-HI_VERSION="1.1.0"
+HI_VERSION="1.2.0"
 HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_STATE_DIR="/var/lib/homeos"
 DRY_RUN="no"
@@ -57,6 +57,7 @@ INSTALL_FIREWALL="yes"
 INSTALL_SSH_HARDEN="yes"
 INSTALL_AI_CLIS="yes"
 INSTALL_PI="yes"
+INSTALL_AI_SKILLS="yes"
 INSTALL_AI_PROJECTS="yes"
 INSTALL_GITHUB_TOOLS="yes"
 INSTALL_MONITORING="yes"
@@ -78,6 +79,7 @@ DOCKER_NETWORK_RANGE="172.30.0.0/16"
 TIMEZONE=""
 GITHUB_TOOLS="all"
 PI_PACKAGES="npm:context-mode npm:pi-subagents npm:pi-mcp-adapter npm:pi-lens npm:pi-gsd npm:pi-powerline-footer npm:pi-web-access npm:pi-interactive-shell npm:@a5c-ai/babysitter-pi npm:@plannotator/pi-extension npm:taskplane npm:pi-markdown-preview npm:@aliou/pi-processes npm:@callumvass/forgeflow-dev npm:@juicesharp/rpiv-todo npm:@juicesharp/rpiv-ask-user-question npm:@samfp/pi-memory npm:pi-mermaid"
+AI_SKILL_INSTALLS="vercel-labs/skills|claude-code,codex,opencode,pi|find-skills;vercel-labs/agent-skills|claude-code,codex,opencode,pi|vercel-react-best-practices,web-design-guidelines,vercel-composition-patterns,vercel-react-native-skills;anthropics/skills|claude-code,codex,opencode,pi|frontend-design;Leonxlnx/taste-skill|claude-code,codex,opencode,pi|*;obra/superpowers|claude-code,codex,opencode,pi|brainstorming,subagent-driven-development,writing-plans;expo/skills|claude-code,codex,opencode|building-native-ui,expo-api-routes,expo-cicd-workflows,expo-deployment,expo-dev-client,expo-tailwind-setup,native-data-fetching,upgrading-expo,use-dom;JuliusBrussee/caveman|claude-code,pi|*;railwayapp/railway-skills|claude-code,codex,opencode|use-railway;callstackincubator/agent-skills|claude-code,codex,opencode|github,react-native-best-practices,upgrading-react-native,validate-skills;wshobson/agents|claude-code,codex,opencode|tailwind-design-system,typescript-advanced-types;vercel-labs/agent-browser|claude-code,codex,opencode|agent-browser;browser-use/browser-use|claude-code,codex,opencode|browser-use;vercel-labs/next-skills|claude-code,codex,opencode|next-best-practices;hyf0/vue-skills|claude-code,codex,opencode|vue-best-practices,vue-debug-guides;MiniMax-AI/cli|claude-code,codex,opencode|mmx-cli;microsoft/azure-skills|claude-code,codex,opencode|microsoft-foundry;nextlevelbuilder/ui-ux-pro-max-skill|claude-code,codex,opencode|ui-ux-pro-max;laurigates/mcu-tinkering-lab|claude-code,codex,opencode|esp32-debugging"
 AI_PROJECTS="all"
 AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
 AI_PROJECT_TARGETS=""
@@ -301,11 +303,168 @@ load_config() {
 		value="$(expand_config_value "$value")"
 
 		case "$key" in
-		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_LOCAL_DOMAINS | INSTALL_COOLIFY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_PI | INSTALL_AI_PROJECTS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | LOCAL_DOMAIN_ROOT | LOCAL_DOMAIN_SERVER_IP | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | PI_PACKAGES | AI_PROJECTS | AI_PROJECT_TOOLS | AI_PROJECT_TARGETS | AI_PROJECT_INSTALL_MODE | GRAFANA_ADMIN_PASSWORD | GRAFANA_BIND_ADDRESS)
+		HOMEOS_ADMIN_USER | HOMEOS_ADMIN_HOME | HOMEOS_MODE | HOMEOS_UNATTENDED | HOMEOS_DATA_DIR | MEDIA_PATH | INSTALL_BASE | INSTALL_DOCKER | INSTALL_NODE | INSTALL_TAILSCALE | INSTALL_CADDY | INSTALL_LOCAL_DOMAINS | INSTALL_COOLIFY | INSTALL_CASAOS | INSTALL_COCKPIT | INSTALL_HOMEASSISTANT | INSTALL_JELLYFIN | INSTALL_VAULTWARDEN | INSTALL_FIREWALL | INSTALL_SSH_HARDEN | INSTALL_AI_CLIS | INSTALL_PI | INSTALL_AI_SKILLS | INSTALL_AI_PROJECTS | INSTALL_GITHUB_TOOLS | INSTALL_MONITORING | INSTALL_BACKUPS | TAILNET_NAME | CADDY_DOMAIN | LOCAL_DOMAIN_ROOT | LOCAL_DOMAIN_SERVER_IP | TAILSCALE_AUTH_KEY | VAULTWARDEN_ADMIN_TOKEN | BACKUP_TARGET | ANTHROPIC_API_KEY | OPENAI_API_KEY | GOOGLE_API_KEY | EXTRA_TCP_PORTS | EXTRA_UDP_PORTS | DOCKER_NETWORK_RANGE | TIMEZONE | GITHUB_TOOLS | PI_PACKAGES | AI_SKILL_INSTALLS | AI_PROJECTS | AI_PROJECT_TOOLS | AI_PROJECT_TARGETS | AI_PROJECT_INSTALL_MODE | GRAFANA_ADMIN_PASSWORD | GRAFANA_BIND_ADDRESS)
 			printf -v "$key" '%s' "$value"
 			;;
 		esac
 	done <"$cfg"
+}
+
+# ------------------------------------------------------------------------------
+# INTERACTIVE CONFIGURATION
+# ------------------------------------------------------------------------------
+have_interactive_checklist() {
+	command -v whiptail >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]
+}
+
+set_component_flag() {
+	case "$1" in
+	base) INSTALL_BASE="yes" ;;
+	docker) INSTALL_DOCKER="yes" ;;
+	node) INSTALL_NODE="yes" ;;
+	tailscale) INSTALL_TAILSCALE="yes" ;;
+	caddy) INSTALL_CADDY="yes" ;;
+	local-domains) INSTALL_LOCAL_DOMAINS="yes" ;;
+	coolify) INSTALL_COOLIFY="yes" ;;
+	casaos) INSTALL_CASAOS="yes" ;;
+	cockpit) INSTALL_COCKPIT="yes" ;;
+	homeassistant) INSTALL_HOMEASSISTANT="yes" ;;
+	jellyfin) INSTALL_JELLYFIN="yes" ;;
+	vaultwarden) INSTALL_VAULTWARDEN="yes" ;;
+	firewall) INSTALL_FIREWALL="yes" ;;
+	ssh-harden) INSTALL_SSH_HARDEN="yes" ;;
+	ai-clis) INSTALL_AI_CLIS="yes" ;;
+	pi) INSTALL_PI="yes" ;;
+	ai-skills) INSTALL_AI_SKILLS="yes" ;;
+	ai-projects) INSTALL_AI_PROJECTS="yes" ;;
+	github-tools) INSTALL_GITHUB_TOOLS="yes" ;;
+	monitoring) INSTALL_MONITORING="yes" ;;
+	backups) INSTALL_BACKUPS="yes" ;;
+	esac
+}
+
+reset_component_flags() {
+	INSTALL_BASE="no"
+	INSTALL_DOCKER="no"
+	INSTALL_NODE="no"
+	INSTALL_TAILSCALE="no"
+	INSTALL_CADDY="no"
+	INSTALL_LOCAL_DOMAINS="no"
+	INSTALL_COOLIFY="no"
+	INSTALL_CASAOS="no"
+	INSTALL_COCKPIT="no"
+	INSTALL_HOMEASSISTANT="no"
+	INSTALL_JELLYFIN="no"
+	INSTALL_VAULTWARDEN="no"
+	INSTALL_FIREWALL="no"
+	INSTALL_SSH_HARDEN="no"
+	INSTALL_AI_CLIS="no"
+	INSTALL_PI="no"
+	INSTALL_AI_SKILLS="no"
+	INSTALL_AI_PROJECTS="no"
+	INSTALL_GITHUB_TOOLS="no"
+	INSTALL_MONITORING="no"
+	INSTALL_BACKUPS="no"
+}
+
+select_components_with_help() {
+	have_interactive_checklist || return 0
+	[[ "$YES_FLAG" == "yes" || "$DRY_RUN" == "yes" ]] && return 0
+	whiptail --yesno "Open an interactive checklist? Arrow over an item to see help for what it installs and what to think about before enabling it." 12 78 || return 0
+
+	local selected tag
+	local -a items=(
+		base "Base system" "$([[ "$INSTALL_BASE" == "yes" ]] && echo ON || echo OFF)" "Core packages, admin user, sudoers, directories, unattended-safe defaults. Keep enabled for real installs."
+		docker "Docker CE" "$([[ "$INSTALL_DOCKER" == "yes" ]] && echo ON || echo OFF)" "Container runtime required by most HomeOS app stacks. Think about existing Docker installs and network ranges."
+		node "Node.js" "$([[ "$INSTALL_NODE" == "yes" ]] && echo ON || echo OFF)" "Node.js, npm, pnpm, Bun. Required for many AI CLIs, npx skills, and JS tooling."
+		tailscale "Tailscale" "$([[ "$INSTALL_TAILSCALE" == "yes" ]] && echo ON || echo OFF)" "Private tailnet access. Provide auth key for unattended setup or log in manually later."
+		caddy "Caddy" "$([[ "$INSTALL_CADDY" == "yes" ]] && echo ON || echo OFF)" "Reverse proxy for local domains and app routes. Think about port 80/443 conflicts."
+		local-domains "Local domains" "$([[ "$INSTALL_LOCAL_DOMAINS" == "yes" ]] && echo ON || echo OFF)" "dnsmasq wildcard DNS such as *.homeos.home.arpa. Requires router/client DNS pointing at HomeOS."
+		coolify "Coolify" "$([[ "$INSTALL_COOLIFY" == "yes" ]] && echo ON || echo OFF)" "Self-hosted app platform. Best on Ubuntu LTS; installer failure is non-fatal on unsupported systems."
+		casaos "CasaOS" "$([[ "$INSTALL_CASAOS" == "yes" ]] && echo ON || echo OFF)" "Friendly server dashboard on port 81. Useful for non-terminal administration."
+		cockpit "Cockpit" "$([[ "$INSTALL_COCKPIT" == "yes" ]] && echo ON || echo OFF)" "Linux web administration and file sharing modules. Opens/uses port 9090."
+		homeassistant "Home Assistant" "$([[ "$INSTALL_HOMEASSISTANT" == "yes" ]] && echo ON || echo OFF)" "Home automation stack on port 8123. Think about device discovery and LAN access."
+		jellyfin "Jellyfin" "$([[ "$INSTALL_JELLYFIN" == "yes" ]] && echo ON || echo OFF)" "Media server on port 8096. Think about media paths and disk size."
+		vaultwarden "Vaultwarden" "$([[ "$INSTALL_VAULTWARDEN" == "yes" ]] && echo ON || echo OFF)" "Bitwarden-compatible password vault. Set a strong admin token before internet exposure."
+		firewall "Firewall" "$([[ "$INSTALL_FIREWALL" == "yes" ]] && echo ON || echo OFF)" "UFW/firewalld rules for HomeOS ports. Review if this machine already has custom rules."
+		ssh-harden "SSH hardening" "$([[ "$INSTALL_SSH_HARDEN" == "yes" ]] && echo ON || echo OFF)" "Disables root SSH and tightens auth. With SSH keys, password auth is disabled."
+		ai-clis "AI CLIs" "$([[ "$INSTALL_AI_CLIS" == "yes" ]] && echo ON || echo OFF)" "Claude Code, Codex, Gemini, Cursor Agent, Kimi, OpenCode. Needs API keys/logins per tool."
+		pi "Pi agent" "$([[ "$INSTALL_PI" == "yes" ]] && echo ON || echo OFF)" "Installs pi.dev coding agent and configured Pi npm packages."
+		ai-skills "AI skills" "$([[ "$INSTALL_AI_SKILLS" == "yes" ]] && echo ON || echo OFF)" "Uses npx skills to install selected skill packages into selected supported agents."
+		ai-projects "AI projects" "$([[ "$INSTALL_AI_PROJECTS" == "yes" ]] && echo ON || echo OFF)" "Clones helper AI repos and links selected tools. Shares skills/agents, isolates MCP/plugins."
+		github-tools "GitHub tools" "$([[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && echo ON || echo OFF)" "Clones selected GitHub helper tools into HomeOS data dir."
+		monitoring "Monitoring" "$([[ "$INSTALL_MONITORING" == "yes" ]] && echo ON || echo OFF)" "Prometheus, node-exporter, Grafana dashboard. Grafana binds to localhost by default."
+		backups "Backups" "$([[ "$INSTALL_BACKUPS" == "yes" ]] && echo ON || echo OFF)" "Restic backup tooling and daily job when BACKUP_TARGET is configured."
+	)
+	if selected="$(whiptail --title "HomeOS components" --separate-output --item-help --checklist "Select components. The help line explains the highlighted item." 28 100 18 "${items[@]}" 3>&1 1>&2 2>&3)"; then
+		reset_component_flags
+		while IFS= read -r tag; do set_component_flag "$tag"; done <<<"$selected"
+	fi
+}
+
+skill_source_help() {
+	case "$1" in
+	vercel-labs/skills) printf '%s\n' "Skill discovery and installation helpers." ;;
+	vercel-labs/agent-skills) printf '%s\n' "Vercel React, composition, RN, and web design guideline skills." ;;
+	anthropics/skills) printf '%s\n' "Official Anthropic skills such as frontend-design." ;;
+	Leonxlnx/taste-skill) printf '%s\n' "High-taste UI/design skills that reduce generic AI output." ;;
+	obra/superpowers) printf '%s\n' "Software craft workflow skills: brainstorming, planning, TDD-style execution." ;;
+	expo/skills) printf '%s\n' "Expo and React Native app, deployment, API route, and upgrade skills." ;;
+	JuliusBrussee/caveman) printf '%s\n' "Compressed communication and commit/review helpers." ;;
+	railwayapp/railway-skills) printf '%s\n' "Railway infrastructure and deployment operations." ;;
+	callstackincubator/agent-skills) printf '%s\n' "GitHub and React Native engineering skills from Callstack." ;;
+	wshobson/agents) printf '%s\n' "Tailwind design system and TypeScript advanced type skills." ;;
+	vercel-labs/agent-browser) printf '%s\n' "Browser automation skill for screenshots, forms, scraping, and testing." ;;
+	browser-use/browser-use) printf '%s\n' "Browser-use automation skill." ;;
+	vercel-labs/next-skills) printf '%s\n' "Next.js best practices skill." ;;
+	hyf0/vue-skills) printf '%s\n' "Vue best practices and debugging skills." ;;
+	MiniMax-AI/cli) printf '%s\n' "MiniMax CLI media/model generation skill." ;;
+	microsoft/azure-skills) printf '%s\n' "Microsoft Foundry/Azure agent deployment and evaluation skill." ;;
+	nextlevelbuilder/ui-ux-pro-max-skill) printf '%s\n' "Broad UI/UX design intelligence skill." ;;
+	laurigates/mcu-tinkering-lab) printf '%s\n' "ESP32 and embedded firmware debugging skill." ;;
+	*) printf '%s\n' "External skill package installed via npx skills." ;;
+	esac
+}
+
+select_ai_skills_with_help() {
+	have_interactive_checklist || return 0
+	[[ "$INSTALL_AI_SKILLS" == "yes" && "$YES_FLAG" != "yes" && "$DRY_RUN" != "yes" ]] || return 0
+
+	local entry source agents skills selected_sources selected_agents selected help new_installs=""
+	local -a package_items=()
+	while IFS= read -r entry; do
+		source="${entry%%|*}"
+		[[ -n "$source" ]] || continue
+		help="$(skill_source_help "$source")"
+		package_items+=("$source" "$source" ON "$help")
+	done < <(emit_records "$AI_SKILL_INSTALLS")
+
+	if [[ ${#package_items[@]} -gt 0 ]]; then
+		if selected_sources="$(whiptail --title "AI skill packages" --separate-output --item-help --checklist "Select any skill packages. Help explains each package." 28 110 18 "${package_items[@]}" 3>&1 1>&2 2>&3)"; then
+			local -a agent_items=(
+				claude-code "Claude Code" ON "Supported by npx skills; installs into Claude Code global skills."
+				codex "Codex" ON "Supported by npx skills; installs into Codex global skills."
+				opencode "OpenCode" ON "Supported by npx skills when available; keeps OpenCode separate from Claude config."
+				pi "Pi" ON "Supported by npx skills; installs into Pi's own skill location."
+				cursor "Cursor" OFF "Supported by npx skills on some systems; enable if you use Cursor Agent."
+				kimi "Kimi" OFF "Mapped to npx skills agent kimi-cli; enable if you use Kimi CLI."
+				gemini "Gemini" OFF "Mapped to npx skills agent gemini-cli; enable if you use Gemini CLI."
+			)
+			selected_agents="$(whiptail --title "AI skill target agents" --separate-output --item-help --checklist "Select target agents. Unsupported agents are shown so you know why they are skipped." 22 100 10 "${agent_items[@]}" 3>&1 1>&2 2>&3)" || selected_agents=""
+			while IFS= read -r selected; do
+				while IFS= read -r entry; do
+					source="${entry%%|*}"
+					[[ "$source" == "$selected" ]] || continue
+					agents="${selected_agents//$'\n'/,}"
+					[[ -n "$agents" ]] || agents="claude-code,codex,opencode,pi"
+					skills="${entry##*|}"
+					[[ -n "$new_installs" ]] && new_installs+=";"
+					new_installs+="${source}|${agents}|${skills}"
+				done < <(emit_records "$AI_SKILL_INSTALLS")
+			done <<<"$selected_sources"
+			AI_SKILL_INSTALLS="$new_installs"
+		fi
+	fi
 }
 
 # ------------------------------------------------------------------------------
@@ -315,6 +474,9 @@ confirm_install() {
 	if [[ "$HOMEOS_UNATTENDED" == "yes" ]]; then
 		return 0
 	fi
+
+	select_components_with_help
+	select_ai_skills_with_help
 
 	echo
 	echo -e "${BOLD}HomeOS Universal Installer v${HI_VERSION}${RESET}"
@@ -342,6 +504,7 @@ confirm_install() {
 	[[ "$INSTALL_SSH_HARDEN" == "yes" ]] && comps+=("SSH hardening")
 	[[ "$INSTALL_AI_CLIS" == "yes" ]] && comps+=("AI CLIs (claude, codex, gemini, etc.)")
 	[[ "$INSTALL_PI" == "yes" ]] && comps+=("Pi coding agent + packages")
+	[[ "$INSTALL_AI_SKILLS" == "yes" ]] && comps+=("Selectable npx skills")
 	[[ "$INSTALL_AI_PROJECTS" == "yes" ]] && comps+=("Shared/isolated AI project library")
 	[[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && comps+=("GitHub dev tools")
 	[[ "$INSTALL_MONITORING" == "yes" ]] && comps+=("Monitoring (Prometheus/Grafana)")
@@ -1155,12 +1318,91 @@ emit_words() {
 	printf '%s\n' "$1" | tr ' 	' '\n\n' | sed '/^$/d'
 }
 
+emit_records() {
+	printf '%s\n' "$1" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d'
+}
+
+run_as_admin_array() {
+	local quoted="" arg q
+	for arg in "$@"; do
+		printf -v q '%q' "$arg"
+		quoted+="$q "
+	done
+	su - "$HOMEOS_ADMIN_USER" -c "$quoted"
+}
+
+normalize_skill_agent() {
+	case "$1" in
+	claude | claude_code | claude-code) printf '%s\n' "claude-code" ;;
+	opencode | open-code) printf '%s\n' "opencode" ;;
+	codex | pi | cursor) printf '%s\n' "$1" ;;
+	kimi | kimi-cli) printf '%s\n' "kimi-cli" ;;
+	gemini | gemini-cli) printf '%s\n' "gemini-cli" ;;
+	*) printf '%s\n' "$1" ;;
+	esac
+}
+
 list_has_token() {
 	local list="$1" needle="$2" token
 	while IFS= read -r token; do
 		[[ "$token" == "$needle" ]] && return 0
 	done < <(emit_tokens "$list")
 	return 1
+}
+
+install_ai_skills() {
+	[[ "$INSTALL_AI_SKILLS" == "yes" ]] || return 0
+	[[ -n "$AI_SKILL_INSTALLS" && "$AI_SKILL_INSTALLS" != "none" ]] || return 0
+	section "AI Skills (npx skills)"
+
+	if ! command -v npx >/dev/null 2>&1; then
+		warn "npx not available; skipping AI skills"
+		return 0
+	fi
+
+	local entry source agents skills rest agent normalized skill installed_count=0
+	while IFS= read -r entry; do
+		source="${entry%%|*}"
+		rest="${entry#*|}"
+		if [[ "$rest" == "$entry" ]]; then
+			agents="*"
+			skills="*"
+		else
+			agents="${rest%%|*}"
+			skills="${rest#*|}"
+			[[ "$skills" != "$rest" ]] || skills="*"
+		fi
+		[[ -n "$source" ]] || continue
+
+		local cmd=(npx --yes skills add "$source" -g -y --copy)
+		cmd+=(-a)
+		if [[ "$agents" == "*" || "$agents" == "all" ]]; then
+			cmd+=("*")
+		else
+			while IFS= read -r agent; do
+				if normalized="$(normalize_skill_agent "$agent")"; then
+					cmd+=("$normalized")
+				else
+					warn "npx skills does not currently support agent '$agent'; skipping for $source"
+				fi
+			done < <(emit_tokens "$agents")
+		fi
+		cmd+=(-s)
+		if [[ "$skills" == "*" || "$skills" == "all" ]]; then
+			cmd+=("*")
+		else
+			while IFS= read -r skill; do cmd+=("$skill"); done < <(emit_tokens "$skills")
+		fi
+
+		if run_as_admin_array "${cmd[@]}" >/dev/null 2>&1; then
+			installed_count=$((installed_count + 1))
+			info "Installed skills from $source"
+		else
+			warn "Skill install failed: $source"
+		fi
+	done < <(emit_records "$AI_SKILL_INSTALLS")
+
+	ok "AI skill package selections processed (${installed_count})"
 }
 
 ai_project_enabled() {
@@ -1651,7 +1893,7 @@ install_homeos_cli() {
 
 	cat >/usr/local/bin/homeos <<'CLIEOF'
 #!/usr/bin/env bash
-# HomeOS day-2 CLI v1.1.0
+# HomeOS day-2 CLI v1.2.0
 set -euo pipefail
 
 ADMIN_USER="${HOMEOS_ADMIN_USER:-admin}"
@@ -1843,7 +2085,7 @@ case "${1:-status}" in
 	domain) shift || true; do_domain "$@" ;;
 	uninstall) shift || true; do_uninstall "$@" ;;
 	update) do_update ;;
-	--version|-v) echo "HomeOS CLI v1.1.0" ;;
+	--version|-v) echo "HomeOS CLI v1.2.0" ;;
 	*) echo "Usage: homeos {status|doctor|logs|restart|backup|config|domain|update|uninstall|--version}"; exit 1 ;;
 esac
 CLIEOF
@@ -1991,7 +2233,7 @@ Options:
   --mode <full|minimal> Installation mode
   --dry-run            Show what would be installed without making changes
   --skip-checks        Skip pre-flight checks
-  --yes                Auto-accept prompts in interactive mode
+  --yes                Auto-accept prompts and skip checklist UI in interactive mode
   --purge              With uninstall, also remove installed packages/repos
   --version            Show version
   --help               Show this help
@@ -1999,6 +2241,11 @@ Options:
 Commands:
   (no command)         Run installer
   uninstall            Remove HomeOS
+
+Interactive mode:
+  If whiptail is available, HomeOS shows checklists for components, AI skill
+  packages, and target agents. Move the highlight over any item to see help for
+  what it installs and what to consider before enabling it.
 
 Examples:
   sudo $0                                    # Interactive install
@@ -2054,6 +2301,7 @@ main() {
 		INSTALL_VAULTWARDEN="no"
 		INSTALL_AI_CLIS="no"
 		INSTALL_PI="no"
+		INSTALL_AI_SKILLS="no"
 		INSTALL_AI_PROJECTS="no"
 		INSTALL_GITHUB_TOOLS="no"
 		INSTALL_MONITORING="no"
@@ -2087,6 +2335,7 @@ main() {
 		[[ "$INSTALL_VAULTWARDEN" == "yes" ]] && info "  - Vaultwarden (:8222)"
 		[[ "$INSTALL_AI_CLIS" == "yes" ]] && info "  - AI CLIs"
 		[[ "$INSTALL_PI" == "yes" ]] && info "  - Pi coding agent + packages"
+		[[ "$INSTALL_AI_SKILLS" == "yes" ]] && info "  - Selectable npx skills"
 		[[ "$INSTALL_AI_PROJECTS" == "yes" ]] && info "  - AI project library (${AI_PROJECTS} -> ${AI_PROJECT_TOOLS})"
 		[[ "$INSTALL_GITHUB_TOOLS" == "yes" ]] && info "  - GitHub dev tools"
 		[[ "$INSTALL_MONITORING" == "yes" ]] && info "  - Prometheus (:9091) + Grafana (:3000)"
@@ -2119,6 +2368,7 @@ main() {
 	install_watchtower
 	install_ai_clis
 	install_pi
+	install_ai_skills
 	install_ai_projects
 	install_github_tools
 	install_backups

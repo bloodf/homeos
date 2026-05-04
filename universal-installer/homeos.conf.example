@@ -48,6 +48,7 @@ INSTALL_SSH_HARDEN="yes"
 # AI / Dev Tools
 INSTALL_AI_CLIS="yes"
 INSTALL_PI="yes"
+INSTALL_AI_SKILLS="yes"
 INSTALL_AI_PROJECTS="yes"
 INSTALL_GITHUB_TOOLS="yes"
 
@@ -139,6 +140,12 @@ GITHUB_TOOLS="all"
 
 # Pi packages to install with pi.dev coding agent. Defaults mirror the maintainer workstation.
 PI_PACKAGES="npm:context-mode npm:pi-subagents npm:pi-mcp-adapter npm:pi-lens npm:pi-gsd npm:pi-powerline-footer npm:pi-web-access npm:pi-interactive-shell npm:@a5c-ai/babysitter-pi npm:@plannotator/pi-extension npm:taskplane npm:pi-markdown-preview npm:@aliou/pi-processes npm:@callumvass/forgeflow-dev npm:@juicesharp/rpiv-todo npm:@juicesharp/rpiv-ask-user-question npm:@samfp/pi-memory npm:pi-mermaid"
+
+# npx skills installer records. Format:
+#   source|agent1,agent2|skill1,skill2;source|agents|skills
+# Use skill "*" for every skill in a package. Supported npx skills agents include
+# claude-code, codex, opencode, pi, cursor, kimi-cli, and gemini-cli. Short aliases kimi/gemini are normalized.
+AI_SKILL_INSTALLS="vercel-labs/skills|claude-code,codex,opencode,pi|find-skills;vercel-labs/agent-skills|claude-code,codex,opencode,pi|vercel-react-best-practices,web-design-guidelines,vercel-composition-patterns,vercel-react-native-skills;anthropics/skills|claude-code,codex,opencode,pi|frontend-design;Leonxlnx/taste-skill|claude-code,codex,opencode,pi|*;obra/superpowers|claude-code,codex,opencode,pi|brainstorming,subagent-driven-development,writing-plans;expo/skills|claude-code,codex,opencode|building-native-ui,expo-api-routes,expo-cicd-workflows,expo-deployment,expo-dev-client,expo-tailwind-setup,native-data-fetching,upgrading-expo,use-dom;JuliusBrussee/caveman|claude-code,pi|*;railwayapp/railway-skills|claude-code,codex,opencode|use-railway;callstackincubator/agent-skills|claude-code,codex,opencode|github,react-native-best-practices,upgrading-react-native,validate-skills;wshobson/agents|claude-code,codex,opencode|tailwind-design-system,typescript-advanced-types;vercel-labs/agent-browser|claude-code,codex,opencode|agent-browser;browser-use/browser-use|claude-code,codex,opencode|browser-use;vercel-labs/next-skills|claude-code,codex,opencode|next-best-practices;hyf0/vue-skills|claude-code,codex,opencode|vue-best-practices,vue-debug-guides;MiniMax-AI/cli|claude-code,codex,opencode|mmx-cli;microsoft/azure-skills|claude-code,codex,opencode|microsoft-foundry;nextlevelbuilder/ui-ux-pro-max-skill|claude-code,codex,opencode|ui-ux-pro-max;laurigates/mcu-tinkering-lab|claude-code,codex,opencode|esp32-debugging"
 
 # AI project library. Projects are cloned into /opt/homeos/ai/projects, shared
 # skills/agents are exposed to selected tools, and MCP/plugin directories remain

@@ -54,15 +54,15 @@ Commands:
 
 ## Components
 
-| Area       | Components                                                               |
-| ---------- | ------------------------------------------------------------------------ |
-| Core       | base packages, admin user, sudoers, state dir                            |
-| Runtime    | Docker CE, Compose, Node.js, pnpm, Bun                                   |
-| Network    | Tailscale, Caddy, local wildcard domains, UFW/firewalld, SSH hardening   |
-| Platform   | Coolify for hosting apps, databases, and websites                        |
-| Management | CasaOS, Cockpit + 45Drives modules                                       |
-| Apps       | Home Assistant, Jellyfin, Vaultwarden                                    |
-| Ops        | Prometheus, node-exporter, Grafana dashboard, Watchtower, restic backups |
+| Area       | Components                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------- |
+| Core       | base packages, admin user, sudoers, state dir                                                      |
+| Runtime    | Docker CE, Compose, Node.js, pnpm, Bun                                                             |
+| Network    | Tailscale, Caddy, local wildcard domains, UFW/firewalld, SSH hardening                             |
+| Platform   | Coolify for hosting apps, databases, and websites                                                  |
+| Management | CasaOS, Cockpit + 45Drives modules                                                                 |
+| Apps       | Home Assistant, Jellyfin, Vaultwarden                                                              |
+| Ops        | Prometheus, node-exporter, Grafana dashboard, Watchtower, restic backups                           |
 | Dev/AI     | Claude Code, Codex, Gemini CLI, Cursor, Kimi, Opencode, Pi + packages, isolated AI project library |
 
 ## Config file
@@ -88,8 +88,10 @@ INSTALL_MONITORING="yes"
 INSTALL_COOLIFY="yes"
 INSTALL_LOCAL_DOMAINS="yes"
 INSTALL_PI="yes"
+INSTALL_AI_SKILLS="yes"
 INSTALL_AI_PROJECTS="yes"
 
+AI_SKILL_INSTALLS="vercel-labs/skills|claude-code,codex,opencode,pi|find-skills"
 AI_PROJECTS="all"
 AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
 AI_PROJECT_TARGETS=""
@@ -109,9 +111,15 @@ See [`homeos.conf.example`](homeos.conf.example) for all options.
 
 Environment expansion is intentionally strict: only exact `$VAR` and `${VAR}` values are expanded. Command substitution is never evaluated.
 
-### AI project library
+### AI skills and project library
+
+Interactive installs use `whiptail` checklists when available. Highlight an item to see help for what that component, skill package, or agent target does and what to consider before enabling it.
+
+`INSTALL_AI_SKILLS=yes` uses `npx skills` with `AI_SKILL_INSTALLS` records formatted as `source|agents|skills`, so one install can choose many skills and target agents.
 
 `INSTALL_AI_PROJECTS=yes` clones helper repos into `/opt/homeos/ai/projects` and writes `/opt/homeos/ai/manifest.tsv`. Use `AI_PROJECTS` to select repos, `AI_PROJECT_TOOLS` to choose eligible tools, and `AI_PROJECT_TARGETS` for per-project overrides such as `A11Y.md:shared,claude,opencode`. Shared skills/agents are symlinked into each selected tool, but MCP servers and plugins remain contained per tool and HomeOS does not edit global MCP configuration files.
+
+See [`../docs/AI-INTEGRATIONS.md`](../docs/AI-INTEGRATIONS.md) for the full source/repo inventory and local MCP/skill findings.
 
 ## Management
 

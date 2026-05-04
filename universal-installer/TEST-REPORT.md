@@ -1,24 +1,25 @@
 # HomeOS Universal Installer — Test Report
 
 **Date:** 2026-05-04
-**Installer Version:** 1.1.0
-**Commit:** `post-7eee606`
+**Installer Version:** 1.2.0
+**Commit:** `post-315a089`
 
 ---
 
 ## Test Matrix
 
-| OS                   | Mode         | Components                                      | Result  | Time    |
-| -------------------- | ------------ | ----------------------------------------------- | ------- | ------- |
-| Debian 12 (bookworm) | minimal      | base, docker, node                              | ✅ PASS | ~2m     |
-| Debian 12 (bookworm) | full         | base, docker, node, caddy, cockpit              | ✅ PASS | ~3m 45s |
-| Debian 12 (bookworm) | idempotency  | re-run full mode on installed system            | ✅ PASS | ~2m 30s |
-| Debian 12 (bookworm) | regression   | post-bugfix validation                          | ✅ PASS | ~3m 30s |
-| Debian 12 (bookworm) | post-review  | base, docker, node, CLI, idempotency            | ✅ PASS | ~4m     |
-| Debian 12 (bookworm) | targeted     | config injection, uninstall, Grafana            | ✅ PASS | <1m     |
-| Debian 12 (bookworm) | v1.1 smoke   | config-path, purge parse, Grafana bind          | ✅ PASS | <1m     |
-| Debian 12 (bookworm) | v1.1.0 smoke | local domains, Grafana dashboard, AI projects, parser safety | ✅ PASS | <2m     |
-| Fedora 40            | minimal      | base, docker, node                              | ✅ PASS | ~2m 15s |
+| OS                   | Mode         | Components                                                   | Result  | Time    |
+| -------------------- | ------------ | ------------------------------------------------------------ | ------- | ------- |
+| Debian 12 (bookworm) | minimal      | base, docker, node                                           | ✅ PASS | ~2m     |
+| Debian 12 (bookworm) | full         | base, docker, node, caddy, cockpit                           | ✅ PASS | ~3m 45s |
+| Debian 12 (bookworm) | idempotency  | re-run full mode on installed system                         | ✅ PASS | ~2m 30s |
+| Debian 12 (bookworm) | regression   | post-bugfix validation                                       | ✅ PASS | ~3m 30s |
+| Debian 12 (bookworm) | post-review  | base, docker, node, CLI, idempotency                         | ✅ PASS | ~4m     |
+| Debian 12 (bookworm) | targeted     | config injection, uninstall, Grafana                         | ✅ PASS | <1m     |
+| Debian 12 (bookworm) | v1.1 smoke   | config-path, purge parse, Grafana bind                       | ✅ PASS | <1m     |
+| Debian 12 (bookworm) | v1.1.0 smoke | local domains, Grafana dashboard, parser safety | ✅ PASS | <2m     |
+| Debian 12 (bookworm) | v1.2.0 smoke | AI skills/projects, interactive helper syntax, parser safety | ✅ PASS | <2m     |
+| Fedora 40            | minimal      | base, docker, node                                           | ✅ PASS | ~2m 15s |
 
 ---
 
@@ -172,6 +173,10 @@ Running the installer a second time on the same system:
 
 **Fixes:** Added local wildcard domains with dnsmasq + Caddy route management, Coolify installer integration, Pi coding agent plus the maintainer's installed Pi package set, isolated AI project library installation/targeting, and a provisioned Grafana dashboard backed by node-exporter metrics.
 
+### 18. v1.2.0 AI Skills and Documentation
+
+**Fixes:** Added selectable `npx skills` installation records, whiptail checklist help for components/skill packages/agent targets, Kimi/Gemini alias normalization to `kimi-cli`/`gemini-cli`, and full AI integration documentation with repo links and sanitized local MCP/skill inventory.
+
 ---
 
 ## Known Limitations
@@ -228,6 +233,7 @@ bash /installer/install.sh --unattended --mode minimal
 | Debian post-review    | ✅     |
 | v1.1 smoke checks     | ✅     |
 | v1.1.0 feature smoke  | ✅     |
+| v1.2.0 AI skill smoke | ✅     |
 | Fedora 40 minimal     | ✅     |
 | homeos CLI functional | ✅     |
 | Install log complete  | ✅     |
