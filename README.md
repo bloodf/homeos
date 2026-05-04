@@ -43,26 +43,26 @@ curl -fsSL https://raw.githubusercontent.com/bloodf/homeos/main/universal-instal
 
 ## What it can install
 
-| Layer | Component |
-| --- | --- |
-| Base | packages, admin user, sudoers, data directories, security updates |
-| Runtime | Docker CE, Docker Compose, Node.js, npm, pnpm, Bun |
-| Network | Tailscale, Caddy, UFW/firewalld, SSH hardening |
-| Management | CasaOS, Cockpit + 45Drives modules |
-| Apps | Home Assistant, Jellyfin, Vaultwarden |
-| Ops | Prometheus, Grafana, Watchtower, restic backups |
-| Dev/AI | Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode, GitHub tools |
+| Layer      | Component                                                                  |
+| ---------- | -------------------------------------------------------------------------- |
+| Base       | packages, admin user, sudoers, data directories, security updates          |
+| Runtime    | Docker CE, Docker Compose, Node.js, npm, pnpm, Bun                         |
+| Network    | Tailscale, Caddy, UFW/firewalld, SSH hardening                             |
+| Management | CasaOS, Cockpit + 45Drives modules                                         |
+| Apps       | Home Assistant, Jellyfin, Vaultwarden                                      |
+| Ops        | Prometheus, Grafana, Watchtower, restic backups                            |
+| Dev/AI     | Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode, GitHub tools |
 
 All major components are controlled by `yes`/`no` flags in `homeos.conf`.
 
 ## OS support
 
-| OS | Minimum version | Notes |
-| --- | --- | --- |
-| Debian | 12 | Node.js 24 via NodeSource |
-| Ubuntu | 22.04 LTS | Node.js 24 via NodeSource |
-| Fedora | 38 | Fedora repos currently provide Node.js 20 |
-| RHEL/Rocky/Alma | 9 | Best-effort RHEL-family support |
+| OS              | Minimum version | Notes                                     |
+| --------------- | --------------- | ----------------------------------------- |
+| Debian          | 12              | Node.js 24 via NodeSource                 |
+| Ubuntu          | 22.04 LTS       | Node.js 24 via NodeSource                 |
+| Fedora          | 38              | Fedora repos currently provide Node.js 20 |
+| RHEL/Rocky/Alma | 9               | Best-effort RHEL-family support           |
 
 Works on bare metal, existing VMs, cloud VPSes, Proxmox guests, ARM64 systems, and containers for smoke testing.
 

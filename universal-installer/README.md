@@ -54,15 +54,15 @@ Commands:
 
 ## Components
 
-| Area | Components |
-| --- | --- |
-| Core | base packages, admin user, sudoers, state dir |
-| Runtime | Docker CE, Compose, Node.js, pnpm, Bun |
-| Network | Tailscale, Caddy, UFW/firewalld, SSH hardening |
-| Management | CasaOS, Cockpit + 45Drives modules |
-| Apps | Home Assistant, Jellyfin, Vaultwarden |
-| Ops | Prometheus, Grafana, Watchtower, restic backups |
-| Dev/AI | Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode, GitHub tools |
+| Area       | Components                                                                 |
+| ---------- | -------------------------------------------------------------------------- |
+| Core       | base packages, admin user, sudoers, state dir                              |
+| Runtime    | Docker CE, Compose, Node.js, pnpm, Bun                                     |
+| Network    | Tailscale, Caddy, UFW/firewalld, SSH hardening                             |
+| Management | CasaOS, Cockpit + 45Drives modules                                         |
+| Apps       | Home Assistant, Jellyfin, Vaultwarden                                      |
+| Ops        | Prometheus, Grafana, Watchtower, restic backups                            |
+| Dev/AI     | Claude Code, Codex, Gemini CLI, Cursor Agent, Kimi, Opencode, GitHub tools |
 
 ## Config file
 
