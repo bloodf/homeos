@@ -317,7 +317,7 @@ All 10 must-fix blockers have been resolved. The installer is:
 - **Tested** across Debian 12, Ubuntu 24.04, and Fedora 40
 - **Safe** with pre-flight checks, dry-run mode, and uninstall capability
 - **Secure** with random passwords, idempotent secrets, and SSH hardening
-- **Documented** with comprehensive README and test report
+- **Documented** with README and `TEST-REPORT.md`
 - **Maintainable** with shellcheck-clean code and state tracking
 
 The remaining 4 deferred items (signed checksums, CONTRIBUTING.md, CI/CD, website) are all post-release enhancements that do not block the core functionality.

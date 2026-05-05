@@ -15,6 +15,7 @@
 #   2. /etc/homeos/homeos.conf
 #   3. ~/.config/homeos/homeos.conf
 #   4. ./homeos.conf
+#   5. homeos.conf.example next to this script
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -2260,6 +2261,7 @@ Config locations (first found wins):
   - /etc/homeos/homeos.conf
   - ~/.config/homeos/homeos.conf
   - ./homeos.conf
+  - homeos.conf.example next to this script
 HELP
 			exit 0
 			;;

@@ -73,6 +73,7 @@ Config search order:
 2. `/etc/homeos/homeos.conf`
 3. `~/.config/homeos/homeos.conf`
 4. `./homeos.conf`
+5. `homeos.conf.example` next to the installer script
 
 Example:
 
@@ -97,8 +98,8 @@ AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
 AI_PROJECT_TARGETS=""
 LOCAL_DOMAIN_ROOT="homeos.home.arpa"
 LOCAL_DOMAIN_SERVER_IP=""
-TAILSCALE_AUTH_KEY="tskey-auth-..."
-VAULTWARDEN_ADMIN_TOKEN="..."
+TAILSCALE_AUTH_KEY="" # optional; do not commit real auth keys
+VAULTWARDEN_ADMIN_TOKEN="" # set a strong value before exposure
 GRAFANA_ADMIN_PASSWORD=""
 GRAFANA_BIND_ADDRESS="127.0.0.1"
 
@@ -115,6 +116,9 @@ Full documentation index: [`../docs/README.md`](../docs/README.md). Key guides:
 - [`../docs/CONFIGURATION.md`](../docs/CONFIGURATION.md)
 - [`../docs/OPERATIONS.md`](../docs/OPERATIONS.md)
 - [`../docs/SECURITY.md`](../docs/SECURITY.md)
+- [`../docs/TESTING.md`](../docs/TESTING.md)
+- [`../docs/REQUIREMENTS.md`](../docs/REQUIREMENTS.md)
+- [`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
 - [`../docs/DEVELOPMENT-PROCESS.md`](../docs/DEVELOPMENT-PROCESS.md)
 - [`../docs/RELEASE-PROCESS.md`](../docs/RELEASE-PROCESS.md)
 

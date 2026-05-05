@@ -75,6 +75,7 @@ Config search order:
 2. `/etc/homeos/homeos.conf`
 3. `~/.config/homeos/homeos.conf`
 4. `./homeos.conf`
+5. `homeos.conf.example` next to the installer script
 
 Example:
 
@@ -98,8 +99,8 @@ AI_PROJECT_TOOLS="claude,opencode,openagent,pi,codex,cursor,gemini"
 AI_PROJECT_TARGETS="" # optional: "A11Y.md:shared,claude,opencode"
 LOCAL_DOMAIN_ROOT="homeos.home.arpa"
 LOCAL_DOMAIN_SERVER_IP="" # auto-detect if empty
-TAILSCALE_AUTH_KEY="tskey-auth-..."
-VAULTWARDEN_ADMIN_TOKEN="..."
+TAILSCALE_AUTH_KEY="" # optional; do not commit real auth keys
+VAULTWARDEN_ADMIN_TOKEN="" # set a strong value before exposure
 GRAFANA_ADMIN_PASSWORD=""        # random if empty
 GRAFANA_BIND_ADDRESS="127.0.0.1" # use 0.0.0.0 for LAN or a Tailscale IP
 
@@ -122,7 +123,14 @@ Start with [`docs/README.md`](docs/README.md).
 | [AI integrations](docs/AI-INTEGRATIONS.md) | AI tools, skills, projects, MCP inventory and isolation. |
 | [Security](docs/SECURITY.md) | Security defaults, secret handling, network/MCP isolation. |
 | [Architecture](docs/ARCHITECTURE.md) | Script structure, state layout, component boundaries. |
+| [Layer index](docs/LAYERS.md) | Source-of-truth map for actual and absent project layers. |
+| [Testing](docs/TESTING.md) | Test layers, TDD workflow, smoke coverage, verification ladder. |
+| [Requirements](docs/REQUIREMENTS.md) | Development and target-system requirements. |
+| [Deployment](docs/DEPLOYMENT.md) | Installer delivery, CI triggers, update path, release deployment. |
+| [MCP guidance](docs/MCP.md) | Project MCP policy and installed-system MCP isolation. |
 | [Development process](docs/DEVELOPMENT-PROCESS.md) | Contributor workflow and change checklist. |
+| [Agent process](docs/AGENT_PROCESS.md) | Agent workflow, TDD, docs gate, verification, finalization. |
+| [Agent capabilities](docs/AGENT_CAPABILITIES.md) | Project-local portable skills and roles under `.agents/`. |
 | [Release process](docs/RELEASE-PROCESS.md) | Versioning, validation, tags, GitHub releases. |
 
 ### AI project isolation
@@ -163,7 +171,11 @@ homeos uninstall --purge --yes
 
 ```text
 homeos/
+├── .agents/
+│   ├── agents/
+│   └── skills/
 ├── .github/workflows/installer-ci.yml
+├── AGENTS.md
 ├── Makefile
 ├── README.md
 ├── docs/
@@ -174,6 +186,13 @@ homeos/
 │   ├── AI-INTEGRATIONS.md
 │   ├── SECURITY.md
 │   ├── ARCHITECTURE.md
+│   ├── LAYERS.md
+│   ├── TESTING.md
+│   ├── REQUIREMENTS.md
+│   ├── DEPLOYMENT.md
+│   ├── MCP.md
+│   ├── AGENT_PROCESS.md
+│   ├── AGENT_CAPABILITIES.md
 │   ├── DEVELOPMENT-PROCESS.md
 │   └── RELEASE-PROCESS.md
 ├── release-notes/v1.0.0.md

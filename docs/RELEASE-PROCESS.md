@@ -6,10 +6,10 @@ HomeOS releases are Git tags plus GitHub Releases. The installer version, CLI ve
 
 Use semantic versioning:
 
-| Change | Version bump |
-| --- | --- |
-| Fix only | patch (`v1.2.1`) |
-| New compatible feature | minor (`v1.3.0`) |
+| Change                   | Version bump     |
+| ------------------------ | ---------------- |
+| Fix only                 | patch (`v1.2.1`) |
+| New compatible feature   | minor (`v1.3.0`) |
 | Breaking config/behavior | major (`v2.0.0`) |
 
 ## Pre-release checklist

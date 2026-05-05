@@ -83,12 +83,12 @@ homeos domain remove app
 
 Files:
 
-| File | Purpose |
-| --- | --- |
-| `/etc/homeos/local-domain-root` | Active local root. |
-| `/etc/homeos/local-domain-ip` | Active DNS IP. |
+| File                                       | Purpose                  |
+| ------------------------------------------ | ------------------------ |
+| `/etc/homeos/local-domain-root`            | Active local root.       |
+| `/etc/homeos/local-domain-ip`              | Active DNS IP.           |
 | `/etc/dnsmasq.d/homeos-local-domains.conf` | dnsmasq wildcard config. |
-| `/etc/caddy/conf.d/*.caddy` | Per-route Caddy files. |
+| `/etc/caddy/conf.d/*.caddy`                | Per-route Caddy files.   |
 
 Troubleshooting:
 
@@ -172,13 +172,13 @@ homeos uninstall --purge --yes
 
 Manual cleanup locations if needed:
 
-| Path | Content |
-| --- | --- |
-| `/opt/homeos` | stacks, AI project library, tools |
-| `/etc/homeos` | config and local-domain metadata |
-| `/var/lib/homeos` | install state and generated secrets |
-| `/etc/caddy/conf.d` | local route files |
-| `/etc/dnsmasq.d/homeos-local-domains.conf` | wildcard DNS config |
+| Path                                       | Content                             |
+| ------------------------------------------ | ----------------------------------- |
+| `/opt/homeos`                              | stacks, AI project library, tools   |
+| `/etc/homeos`                              | config and local-domain metadata    |
+| `/var/lib/homeos`                          | install state and generated secrets |
+| `/etc/caddy/conf.d`                        | local route files                   |
+| `/etc/dnsmasq.d/homeos-local-domains.conf` | wildcard DNS config                 |
 
 ## Troubleshooting checklist
 

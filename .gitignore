@@ -1,6 +1,8 @@
 .envrc
 .env
 *.env
+homeos.conf
+.mcp.local.json
 .DS_Store
 .worktrees/
 .claude/

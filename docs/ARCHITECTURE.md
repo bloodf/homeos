@@ -18,7 +18,11 @@ The supported install path is always `universal-installer/install.sh` on an exis
 
 ```text
 homeos/
+├── .agents/
+│   ├── agents/
+│   └── skills/
 ├── .github/workflows/installer-ci.yml
+├── AGENTS.md
 ├── docs/
 ├── release-notes/
 ├── universal-installer/
@@ -45,34 +49,36 @@ homeos/
 8. embedded `homeos` CLI writer
 9. parse args/main flow
 
+Installer help and comments must match the runtime config search order in `find_config`.
+
 The installer is Bash and must remain ShellCheck clean at warning severity.
 
 ## State layout
 
-| Path | Purpose |
-| --- | --- |
-| `/etc/homeos/homeos.conf` | System config. |
-| `/var/lib/homeos/install.state` | Install timestamps/state. |
-| `/var/lib/homeos/config-path` | Original config path for updates. |
-| `/var/lib/homeos/admin-password.txt` | Generated unattended admin password. |
-| `/var/lib/homeos/grafana-password.txt` | Generated Grafana password. |
-| `/opt/homeos/stacks` | Docker Compose stacks. |
-| `/opt/homeos/tools` | Cloned helper tools. |
-| `/opt/homeos/ai` | AI project library and shared skills/agents. |
-| `/var/log/homeos-install.log` | Installer log. |
+| Path                                   | Purpose                                      |
+| -------------------------------------- | -------------------------------------------- |
+| `/etc/homeos/homeos.conf`              | System config.                               |
+| `/var/lib/homeos/install.state`        | Install timestamps/state.                    |
+| `/var/lib/homeos/config-path`          | Original config path for updates.            |
+| `/var/lib/homeos/admin-password.txt`   | Generated unattended admin password.         |
+| `/var/lib/homeos/grafana-password.txt` | Generated Grafana password.                  |
+| `/opt/homeos/stacks`                   | Docker Compose stacks.                       |
+| `/opt/homeos/tools`                    | Cloned helper tools.                         |
+| `/opt/homeos/ai`                       | AI project library and shared skills/agents. |
+| `/var/log/homeos-install.log`          | Installer log.                               |
 
 ## Component boundaries
 
-| Component | Boundary |
-| --- | --- |
-| Base | OS packages, user, sudoers, directories. |
-| Docker | Docker engine/repo and default address pool. |
-| Node | Node/npm/corepack/pnpm/Bun. |
-| Network | Tailscale, Caddy, dnsmasq, firewall. |
-| Stacks | Docker Compose files under `/opt/homeos/stacks`. |
-| AI tooling | AI CLI installers, Pi packages, npx skills, AI project links. |
+| Component  | Boundary                                                       |
+| ---------- | -------------------------------------------------------------- |
+| Base       | OS packages, user, sudoers, directories.                       |
+| Docker     | Docker engine/repo and default address pool.                   |
+| Node       | Node/npm/corepack/pnpm/Bun.                                    |
+| Network    | Tailscale, Caddy, dnsmasq, firewall.                           |
+| Stacks     | Docker Compose files under `/opt/homeos/stacks`.               |
+| AI tooling | AI CLI installers, Pi packages, npx skills, AI project links.  |
 | Monitoring | Prometheus/node-exporter/Grafana stack and provisioning files. |
-| Backups | restic package and cron script. |
+| Backups    | restic package and cron script.                                |
 
 ## Idempotency model
 
@@ -98,6 +104,7 @@ The installer writes `/usr/local/bin/homeos`. This CLI is generated from a hered
 
 - runs `universal-installer/smoke-test.sh` in Debian Bookworm Docker
 - verifies config injection safety
+- verifies installer help documents config fallback behavior
 - verifies uninstall parser behavior
 - verifies Grafana generated password/bind/dashboard files
 - verifies local domain config

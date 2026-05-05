@@ -3,6 +3,9 @@ set -euo pipefail
 
 INSTALLER_PATH="${INSTALLER_PATH:-/install.sh}"
 
+bash "$INSTALLER_PATH" --help | grep -q 'homeos.conf.example'
+echo HELP_CONFIG_FALLBACK_OK
+
 cat >/tmp/inject.conf <<'EOF'
 INSTALL_BASE="no"
 INSTALL_DOCKER="no"

@@ -17,13 +17,13 @@ HomeOS is a convenience installer for private home servers. It chooses safer def
 
 Sensitive files:
 
-| File | Contains | Recommended mode |
-| --- | --- | --- |
-| `/etc/homeos/homeos.conf` | API keys/tokens if configured | `0600`, root-owned |
-| `/var/lib/homeos/admin-password.txt` | Generated admin password | root-readable only |
-| `/var/lib/homeos/grafana-password.txt` | Generated Grafana password | root-readable only |
+| File                                   | Contains                      | Recommended mode   |
+| -------------------------------------- | ----------------------------- | ------------------ |
+| `/etc/homeos/homeos.conf`              | API keys/tokens if configured | `0600`, root-owned |
+| `/var/lib/homeos/admin-password.txt`   | Generated admin password      | root-readable only |
+| `/var/lib/homeos/grafana-password.txt` | Generated Grafana password    | root-readable only |
 
-Do not commit real config files containing secrets.
+Do not commit real config files containing secrets. The repository ignores root-level `homeos.conf` and `.mcp.local.json` for local private overrides.
 
 ## Network exposure
 

@@ -4,12 +4,12 @@
 
 HomeOS installs onto an existing Linux machine.
 
-| OS family | Supported versions | Notes |
-| --- | --- | --- |
-| Debian | 12+ | Primary target. Uses apt repositories for Docker, Caddy, NodeSource. |
-| Ubuntu | 22.04 LTS+ | Primary target. Best choice for Coolify. |
-| Fedora | 38+ | Best effort; Fedora repo Node may lag NodeSource. |
-| RHEL/Rocky/Alma | 9+ | Best effort RHEL-family support. |
+| OS family       | Supported versions | Notes                                                                |
+| --------------- | ------------------ | -------------------------------------------------------------------- |
+| Debian          | 12+                | Primary target. Uses apt repositories for Docker, Caddy, NodeSource. |
+| Ubuntu          | 22.04 LTS+         | Primary target. Best choice for Coolify.                             |
+| Fedora          | 38+                | Best effort; Fedora repo Node may lag NodeSource.                    |
+| RHEL/Rocky/Alma | 9+                 | Best effort RHEL-family support.                                     |
 
 Supported environments: bare metal, VPS, Proxmox/VMs, ARM64 machines, and containers for smoke testing. The installer degrades gracefully when systemd or Docker daemon access is unavailable.
 
@@ -62,6 +62,7 @@ First match wins:
 2. `/etc/homeos/homeos.conf`
 3. `~/.config/homeos/homeos.conf`
 4. `./homeos.conf`
+5. `homeos.conf.example` next to the installer script
 
 When installed with `--config`, HomeOS records the path in `/var/lib/homeos/config-path` so `homeos update` can reuse it.
 
@@ -102,15 +103,15 @@ Uninstall does not silently delete Docker volumes unless confirmed. Review promp
 
 Common ports:
 
-| Service | Default URL |
-| --- | --- |
-| CasaOS | `http://SERVER_IP:81` |
-| Cockpit | `https://SERVER_IP:9090` |
-| Home Assistant | `http://SERVER_IP:8123` |
-| Jellyfin | `http://SERVER_IP:8096` |
-| Vaultwarden | `http://SERVER_IP:8222` |
-| Coolify | `http://SERVER_IP:8000` |
-| Grafana | `http://127.0.0.1:3000` by default |
+| Service        | Default URL                        |
+| -------------- | ---------------------------------- |
+| CasaOS         | `http://SERVER_IP:81`              |
+| Cockpit        | `https://SERVER_IP:9090`           |
+| Home Assistant | `http://SERVER_IP:8123`            |
+| Jellyfin       | `http://SERVER_IP:8096`            |
+| Vaultwarden    | `http://SERVER_IP:8222`            |
+| Coolify        | `http://SERVER_IP:8000`            |
+| Grafana        | `http://127.0.0.1:3000` by default |
 
 Grafana intentionally binds to localhost unless `GRAFANA_BIND_ADDRESS` is changed.
 

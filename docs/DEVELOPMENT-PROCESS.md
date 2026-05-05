@@ -1,6 +1,6 @@
 # Development process
 
-Use this process for every HomeOS change.
+Use this process for every HomeOS change. Root `AGENTS.md` adds mandatory agent discipline, TDD, docs gate, and git finalization requirements for coding agents.
 
 ## Principles
 
@@ -16,7 +16,7 @@ Use this process for every HomeOS change.
 
 ```bash
 git checkout main
-git pull --ff-only
+git pull --rebase origin main
 git checkout -b <type>/<short-name>
 ```
 
@@ -95,6 +95,7 @@ Docs to consider:
 - `universal-installer/homeos.conf.example`
 - `docs/README.md`
 - topic-specific docs under `docs/`
+- `AGENTS.md` and `.agents/` when agent process changes
 - `release-notes/vX.Y.Z.md`
 
 ## Commit style
@@ -122,5 +123,6 @@ Before commit:
 
 After push:
 
-- [ ] Watch GitHub Actions
+- [ ] Confirm push to `origin/main`
+- [ ] Watch GitHub Actions when the workflow is triggered
 - [ ] Fix failures immediately or revert
