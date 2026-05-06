@@ -24,7 +24,7 @@ IFS=$'\n\t'
 # SCRIPT METADATA
 # ------------------------------------------------------------------------------
 HI_VERSION="1.2.0"
-HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 INSTALL_STATE_DIR="/var/lib/homeos"
 DRY_RUN="no"
 SKIP_CHECKS="no"
